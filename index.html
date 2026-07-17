@@ -179,6 +179,7 @@
 <script>
 /* ============================== CONFIG ============================== */
 const MANIFEST_URL     = "data/cards.json";       // same-origin, relative
+const SHOW_BACKS       = false;   // true: featured card flips to its back mid-cycle
 const HOME             = { lat: 42.72285220808688, lon: -83.41970398420766 }; // Clarkston public proxy
 const FEATURE_MS       = 55000;   // one card's full time in the spotlight
 const STAMP_DELAY_MS   = 900;     // postmark thump after delivery
@@ -324,7 +325,7 @@ function startFeature() {
   $("dossier").classList.remove("on");
 
   $("imgFront").src = c.front;
-  $("imgBack").src = c.back || "";
+  $("imgBack").src = (SHOW_BACKS && c.back) || "";
 
   const d = localDate(c.date);
   $("pmDate").textContent = d ? `${MONTHS[d.getMonth()]} ${d.getDate()}` : "—";
@@ -373,7 +374,7 @@ function featureTick(now) {
     $("dossier").classList.add("on");
     phase = "stamped";
   }
-  if (phase === "stamped" && c.back && t >= FLIP_AT_MS) {
+  if (phase === "stamped" && SHOW_BACKS && c.back && t >= FLIP_AT_MS) {
     env.classList.add("showback");
     phase = "flipped";
   }
