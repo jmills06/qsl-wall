@@ -1,0 +1,5 @@
+﻿scans/
+processed/
+review/
+qrz_cache.json
+*.adi
