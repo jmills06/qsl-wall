@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>K8JKU · The Mailbag</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+<style>
+  :root {
+    --paper:   #f2ead6;
+    --paper-2: #ece2c8;
+    --ink:     #22303f;
+    --ink-60:  rgba(34,48,63,.6);
+    --ink-40:  rgba(34,48,63,.4);
+    --ink-15:  rgba(34,48,63,.15);
+    --post-red:#b23a48;
+    --post-blue:#2f4b6e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1080px; height:1920px; overflow:hidden; }
+  body {
+    font-family:'Source Sans Pro',sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 88% 4%,  rgba(120,90,40,.10), transparent 42%),
+      radial-gradient(circle at 6% 97%,  rgba(120,90,40,.12), transparent 38%),
+      radial-gradient(circle at 50% 55%, rgba(120,90,40,.05), transparent 60%),
+      linear-gradient(180deg, var(--paper) 0%, var(--paper-2) 100%);
+    display:flex; flex-direction:column;
+    padding:44px 48px 30px;
+  }
+
+  /* ---------- header ---------- */
+  .hdr { display:flex; justify-content:space-between; align-items:flex-start; }
+  .hdr-left .call { font-family:'Oswald'; font-weight:600; font-size:64px; letter-spacing:6px; line-height:1; }
+  .hdr-left .sub  { font-family:'Oswald'; font-weight:300; font-size:20px; letter-spacing:6px;
+                    text-transform:uppercase; color:var(--ink-60); margin-top:6px; }
+  .hdr-right { text-align:right; }
+  .clock { font-family:'Oswald'; font-weight:300; font-size:52px; letter-spacing:3px; line-height:1; }
+  .cdate { font-family:'Oswald'; font-weight:300; font-size:16px; letter-spacing:3px;
+           text-transform:uppercase; color:var(--ink-60); margin-top:6px; }
+  .rule { height:2px; margin:22px 0 26px;
+          background:linear-gradient(90deg, var(--ink-60), transparent); }
+
+  /* ---------- wall of cards ---------- */
+  .wall { display:grid; gap:10px; }
+  .tile { position:relative; aspect-ratio:8/5; border-radius:3px; overflow:hidden;
+          border:1px solid var(--ink-15);
+          transition:opacity 1.4s ease; }
+  .tile img { width:100%; height:100%; object-fit:cover; opacity:.42; filter:saturate(.72);
+              transition:opacity 1.4s ease; display:block; }
+  .tile.now img { opacity:.95; filter:saturate(1); }
+  .tile.now { border:2px solid var(--post-red); }
+  .tile.fading img { opacity:0; }
+
+  /* ---------- featured card ---------- */
+  .stage { flex:1; display:flex; flex-direction:column; align-items:center;
+           justify-content:center; position:relative; min-height:0; }
+  .envelope { width:840px; position:relative;
+              opacity:0; transform:translateY(-46px) rotate(0deg);
+              transition:opacity .55s ease, transform .6s cubic-bezier(.2,.9,.3,1.1); }
+  .envelope.in { opacity:1; }
+  .flip { position:relative; width:100%; aspect-ratio:8/5;
+          transform-style:preserve-3d; transition:transform .9s ease; }
+  .envelope.showback .flip { transform:rotateY(180deg); }
+  .face { position:absolute; inset:0; backface-visibility:hidden;
+          background:#faf6ea; border:1px solid var(--ink-15); border-radius:4px;
+          box-shadow:0 14px 34px rgba(34,48,63,.30);
+          display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .face img { max-width:100%; max-height:100%; object-fit:contain; display:block; }
+  .face.back { transform:rotateY(180deg); }
+
+  .postmark { position:absolute; top:-44px; right:-40px; width:190px; height:150px;
+              opacity:0; transform:scale(2.6) rotate(-14deg); z-index:3;
+              transition:opacity .28s ease, transform .34s cubic-bezier(.3,1.4,.5,1); }
+  .postmark.on { opacity:.9; transform:scale(1) rotate(-8deg); }
+  .postmark circle, .postmark path { stroke:var(--ink); }
+  .postmark text { fill:var(--ink); font-family:'Oswald'; }
+
+  /* ---------- dossier ---------- */
+  .dossier { text-align:center; margin-top:30px; opacity:0; transform:translateY(12px);
+             transition:opacity .8s ease .25s, transform .8s ease .25s; }
+  .dossier.on { opacity:1; transform:none; }
+  .d-call { font-family:'Oswald'; font-weight:600; font-size:58px; letter-spacing:5px; line-height:1; }
+  .d-name { font-family:'Oswald'; font-weight:300; font-size:24px; letter-spacing:4px;
+            text-transform:uppercase; color:var(--ink-60); margin-top:6px; }
+  .d-meta { font-family:'Oswald'; font-weight:400; font-size:20px; letter-spacing:3px;
+            text-transform:uppercase; color:var(--post-red); margin-top:12px; }
+  .d-note { font-size:18px; color:var(--ink-60); margin-top:10px; max-width:760px;
+            margin-left:auto; margin-right:auto; font-style:italic; line-height:1.35; }
+  .d-anniv { font-family:'Oswald'; font-weight:500; font-size:19px; letter-spacing:3px;
+             text-transform:uppercase; color:var(--post-red); margin-top:10px; }
+
+  /* ---------- route map ---------- */
+  .mapwrap { height:430px; margin-top:26px; position:relative; }
+  .mapwrap svg { width:100%; height:100%; }
+  .land { fill:rgba(34,48,63,.06); stroke:var(--ink-40); stroke-width:.7; }
+  .graticule { fill:none; stroke:var(--ink-15); stroke-width:.5; stroke-dasharray:1 4; }
+  .route { fill:none; stroke:var(--post-red); stroke-width:3; stroke-dasharray:10 8;
+           stroke-linecap:round; }
+  .pt-home { fill:none; stroke:var(--ink); stroke-width:2.5; }
+  .pt-dx   { fill:var(--post-red); }
+  .maplabel { font-family:'Oswald'; font-size:17px; letter-spacing:2px; fill:var(--ink-60);
+              text-transform:uppercase; }
+  .route-caption { position:absolute; bottom:2px; left:0; right:0; text-align:center;
+                   font-family:'Oswald'; font-weight:300; font-size:18px; letter-spacing:4px;
+                   text-transform:uppercase; color:var(--ink-60); }
+
+  /* ---------- footer ---------- */
+  .airmail { height:10px; margin-top:24px; border-radius:2px;
+    background:repeating-linear-gradient(135deg,
+      var(--post-red) 0 16px, var(--paper) 16px 32px,
+      var(--post-blue) 32px 48px, var(--paper) 48px 64px); }
+  .foot { display:flex; justify-content:space-between; margin-top:14px;
+          font-family:'Oswald'; font-weight:300; font-size:15px; letter-spacing:3px;
+          text-transform:uppercase; color:var(--ink-40); }
+  .foot .stale { color:var(--post-red); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration:.01ms !important; animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="call">K8JKU</div>
+      <div class="sub">The Mailbag · QSL Collection</div>
+    </div>
+    <div class="hdr-right">
+      <div class="clock" id="clock">--:--</div>
+      <div class="cdate" id="cdate"></div>
+    </div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="wall" id="wall"></div>
+
+  <div class="stage">
+    <div class="envelope" id="envelope">
+      <div class="flip" id="flip">
+        <div class="face front"><img id="imgFront" alt=""></div>
+        <div class="face back"><img id="imgBack" alt=""></div>
+      </div>
+      <svg class="postmark" id="postmark" viewBox="0 0 190 150">
+        <circle cx="62" cy="75" r="52" fill="none" stroke-width="3.5"/>
+        <circle cx="62" cy="75" r="42" fill="none" stroke-width="1.4"/>
+        <text x="62" y="58" font-size="12" text-anchor="middle" letter-spacing="1">CLARKSTON MI</text>
+        <text x="62" y="80" font-size="16" text-anchor="middle" font-weight="600" id="pmDate">JAN 1</text>
+        <text x="62" y="99" font-size="14" text-anchor="middle" id="pmYear">2024</text>
+        <text x="62" y="116" font-size="10" text-anchor="middle" letter-spacing="2">EN82</text>
+        <path d="M122 55 q10 -7 20 0 t20 0 t20 0" fill="none" stroke-width="3"/>
+        <path d="M122 75 q10 -7 20 0 t20 0 t20 0" fill="none" stroke-width="3"/>
+        <path d="M122 95 q10 -7 20 0 t20 0 t20 0" fill="none" stroke-width="3"/>
+      </svg>
+    </div>
+    <div class="dossier" id="dossier">
+      <div class="d-call" id="dCall"></div>
+      <div class="d-name" id="dName"></div>
+      <div class="d-meta" id="dMeta"></div>
+      <div class="d-anniv" id="dAnniv" style="display:none"></div>
+      <div class="d-note" id="dNote"></div>
+    </div>
+  </div>
+
+  <div class="mapwrap" id="mapwrap">
+    <svg id="map"></svg>
+    <div class="route-caption" id="routeCaption"></div>
+  </div>
+
+  <div class="airmail"></div>
+  <div class="foot">
+    <span id="footLeft">LOADING COLLECTION…</span>
+    <span id="footRight"></span>
+  </div>
+
+<script>
+/* ============================== CONFIG ============================== */
+const MANIFEST_URL     = "data/cards.json";       // same-origin, relative
+const HOME             = { lat: 42.72285220808688, lon: -83.41970398420766 }; // Clarkston public proxy
+const FEATURE_MS       = 55000;   // one card's full time in the spotlight
+const STAMP_DELAY_MS   = 900;     // postmark thump after delivery
+const FLIP_AT_MS       = 28000;   // when to flip to the back (if one exists)
+const FLIP_BACK_AT_MS  = 44000;   // when to return to the front
+const EXIT_MS          = 53000;   // when the card starts leaving
+const GRID_SWAP_MS     = 180000;  // ambient wall swap interval
+const REFRESH_MS       = 3600000; // manifest re-fetch interval
+const WALL_MAX_TILES   = 48;      // cap so tiles stay legible
+const MONTHS = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+
+/* ============================== STATE ============================== */
+let cards = [];            // full manifest
+let wallSet = [];          // subset currently on the wall (indices into cards)
+let order = [];            // feature rotation order (indices into cards)
+let orderPos = 0;
+let featureStart = 0;      // timestamp of current feature cycle
+let phase = "idle";        // idle -> shown -> (flipped) -> exiting
+let currentIdx = -1;
+let dataSig = "";
+let lastFetchOk = null;
+let worldLand = null;      // topojson land, loaded once
+
+const $ = id => document.getElementById(id);
+
+/* ============================== UTIL ============================== */
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function localDate(iso) {           // never new Date("YYYY-MM-DD") bare
+  return iso ? new Date(iso + "T00:00:00") : null;
+}
+function haversineMi(a, b) {
+  const R = 3958.76, t = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * t, dLon = (b.lon - a.lon) * t;
+  const h = Math.sin(dLat/2)**2 +
+            Math.cos(a.lat*t) * Math.cos(b.lat*t) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+}
+function bearingDeg(a, b) {
+  const t = Math.PI / 180;
+  const y = Math.sin((b.lon-a.lon)*t) * Math.cos(b.lat*t);
+  const x = Math.cos(a.lat*t)*Math.sin(b.lat*t) -
+            Math.sin(a.lat*t)*Math.cos(b.lat*t)*Math.cos((b.lon-a.lon)*t);
+  return (Math.atan2(y, x) / t + 360) % 360;
+}
+function titleCase(s) {
+  return s ? s.replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1)) : s;
+}
+
+/* ============================== DATA ============================== */
+async function loadManifest() {
+  try {
+    const r = await fetch(MANIFEST_URL + "?t=" + Date.now());
+    if (!r.ok) throw new Error(r.status);
+    const m = await r.json();
+    const sig = JSON.stringify(m.cards.map(c => c.id));
+    lastFetchOk = new Date();
+    if (sig !== dataSig) {
+      dataSig = sig;
+      cards = m.cards.filter(c => c.front);
+      buildWall();
+      buildOrder();
+    }
+    updateFooter(m.generated);
+  } catch (e) {
+    // keep whatever is on screen; just flag the footer
+    updateFooter(null, true);
+  }
+}
+
+function buildOrder() {
+  order = shuffle(cards.map((_, i) => i));
+  // anniversary cards jump the queue
+  const today = new Date();
+  const anniv = order.filter(i => {
+    const d = localDate(cards[i].date);
+    return d && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  });
+  order = [...anniv, ...order.filter(i => !anniv.includes(i))];
+  orderPos = 0;
+}
+
+/* ============================== WALL ============================== */
+function wallLayout(n) {
+  if (n <= 4)  return { cols: 2, rows: 2 };
+  if (n <= 9)  return { cols: 3, rows: Math.ceil(Math.min(n,9)/3) };
+  if (n <= 18) return { cols: 5, rows: Math.ceil(Math.min(n,15)/5) };
+  return { cols: 8, rows: 6 };   // hundreds: 48-tile rotating subset
+}
+function buildWall() {
+  const wall = $("wall");
+  wall.innerHTML = "";
+  const n = Math.min(cards.length, WALL_MAX_TILES);
+  const { cols } = wallLayout(cards.length);
+  wall.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  wallSet = shuffle(cards.map((_, i) => i)).slice(0, n);
+  wallSet.forEach(ci => {
+    const t = document.createElement("div");
+    t.className = "tile"; t.dataset.ci = ci;
+    const img = document.createElement("img");
+    img.src = cards[ci].thumb || cards[ci].front;
+    t.appendChild(img);
+    wall.appendChild(t);
+  });
+}
+function ambientSwap() {
+  // one hidden card quietly replaces one wall tile
+  if (cards.length <= wallSet.length) return;   // everything's already up
+  const hidden = cards.map((_, i) => i).filter(i => !wallSet.includes(i));
+  const inIdx  = hidden[Math.floor(Math.random() * hidden.length)];
+  const slot   = Math.floor(Math.random() * wallSet.length);
+  const tile   = $("wall").children[slot];
+  tile.classList.add("fading");
+  setTimeout(() => {
+    wallSet[slot] = inIdx;
+    tile.dataset.ci = inIdx;
+    tile.querySelector("img").src = cards[inIdx].thumb || cards[inIdx].front;
+    tile.classList.remove("fading");
+  }, 1500);
+}
+function markWallTile(ci, on) {
+  [...$("wall").children].forEach(t => {
+    t.classList.toggle("now", on && +t.dataset.ci === ci);
+  });
+}
+
+/* ============================== FEATURE CYCLE ============================== */
+function startFeature() {
+  if (!cards.length) return;
+  if (orderPos >= order.length) buildOrder();
+  currentIdx = order[orderPos++];
+  const c = cards[currentIdx];
+
+  // stage the card
+  const env = $("envelope");
+  env.classList.remove("in", "showback");
+  $("postmark").classList.remove("on");
+  $("dossier").classList.remove("on");
+
+  $("imgFront").src = c.front;
+  $("imgBack").src = c.back || "";
+
+  const d = localDate(c.date);
+  $("pmDate").textContent = d ? `${MONTHS[d.getMonth()]} ${d.getDate()}` : "—";
+  $("pmYear").textContent = d ? d.getFullYear() : "";
+
+  $("dCall").textContent = c.callsign;
+  $("dName").textContent = c.name || "";
+  const dist = (c.lat != null) ? Math.round(haversineMi(HOME, {lat:c.lat, lon:c.lon})) : null;
+  const meta = [
+    titleCase(c.qth) || c.country, c.band, c.mode,
+    dist != null ? dist.toLocaleString() + " mi" : null
+  ].filter(Boolean).join(" · ");
+  $("dMeta").textContent = meta;
+
+  const today = new Date();
+  const annivEl = $("dAnniv");
+  if (d && d.getMonth() === today.getMonth() && d.getDate() === today.getDate()
+        && today.getFullYear() > d.getFullYear()) {
+    const yrs = today.getFullYear() - d.getFullYear();
+    annivEl.textContent = `✶ ${yrs} year${yrs>1?"s":""} ago today ✶`;
+    annivEl.style.display = "";
+  } else annivEl.style.display = "none";
+
+  $("dNote").textContent = c.notes || "";
+
+  // random settle tilt between -3 and 3 degrees, never 0
+  const tilt = (Math.random() * 2 + 1) * (Math.random() < .5 ? -1 : 1);
+  env.style.transform = `translateY(0) rotate(${tilt}deg)`;
+  requestAnimationFrame(() => env.classList.add("in"));
+
+  markWallTile(currentIdx, true);
+  drawRoute(c);
+
+  featureStart = Date.now();
+  phase = "shown";
+}
+
+function featureTick(now) {
+  if (phase === "idle" || currentIdx < 0) return;
+  const t = now - featureStart;
+  const c = cards[currentIdx];
+  const env = $("envelope");
+
+  if (phase === "shown" && t >= STAMP_DELAY_MS) {
+    $("postmark").classList.add("on");
+    $("dossier").classList.add("on");
+    phase = "stamped";
+  }
+  if (phase === "stamped" && c.back && t >= FLIP_AT_MS) {
+    env.classList.add("showback");
+    phase = "flipped";
+  }
+  if (phase === "flipped" && t >= FLIP_BACK_AT_MS) {
+    env.classList.remove("showback");
+    phase = "stamped2";
+  }
+  if ((phase === "stamped" || phase === "stamped2") && t >= EXIT_MS) {
+    env.classList.remove("in");
+    $("postmark").classList.remove("on");
+    $("dossier").classList.remove("on");
+    markWallTile(currentIdx, false);
+    phase = "exiting";
+  }
+  if (t >= FEATURE_MS) {
+    phase = "idle";
+    startFeature();
+  }
+}
+
+/* ============================== ROUTE MAP ============================== */
+async function loadWorld() {
+  try {
+    const r = await fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json");
+    const topo = await r.json();
+    worldLand = topojson.feature(topo, topo.objects.land);
+  } catch (e) { worldLand = null; $("mapwrap").style.display = "none"; }
+}
+
+function drawRoute(c) {
+  if (!worldLand) return;
+  const svg = d3.select("#map");
+  svg.selectAll("*").remove();
+  const W = $("mapwrap").clientWidth, H = $("mapwrap").clientHeight - 30;
+  svg.attr("viewBox", `0 0 ${W} ${H}`);
+
+  const proj = d3.geoNaturalEarth1().fitSize([W, H], worldLand);
+  const path = d3.geoPath(proj);
+
+  svg.append("path").attr("class","graticule")
+     .attr("d", path(d3.geoGraticule10()));
+  svg.append("path").attr("class","land").attr("d", path(worldLand));
+
+  const home = [HOME.lon, HOME.lat];
+  const [hx, hy] = proj(home);
+  svg.append("circle").attr("class","pt-home").attr("cx",hx).attr("cy",hy).attr("r",7);
+  svg.append("circle").attr("class","pt-home").attr("cx",hx).attr("cy",hy).attr("r",2.5)
+     .style("fill","var(--ink)");
+
+  if (c.lat == null) { $("routeCaption").textContent = ""; return; }
+  const dx = [c.lon, c.lat];
+  const [dxx, dxy] = proj(dx);
+
+  const routePath = svg.append("path").attr("class","route")
+     .attr("d", path({ type:"LineString", coordinates:[home, dx] }));
+  const len = routePath.node().getTotalLength();
+  routePath
+     .attr("stroke-dasharray", `${len} ${len}`)
+     .attr("stroke-dashoffset", len)
+     .transition().duration(2400).ease(d3.easeCubicOut)
+     .attr("stroke-dashoffset", 0)
+     .on("end", () => routePath.attr("stroke-dasharray", "10 8").attr("stroke-dashoffset", 0));
+
+  svg.append("circle").attr("class","pt-dx").attr("cx",dxx).attr("cy",dxy).attr("r",0)
+     .transition().delay(2200).duration(400).attr("r",7);
+
+  const dist = Math.round(haversineMi(HOME, {lat:c.lat, lon:c.lon}));
+  const brg  = Math.round(bearingDeg(HOME, {lat:c.lat, lon:c.lon}));
+  $("routeCaption").textContent =
+    `EN82 → ${titleCase(c.qth) || c.country || c.callsign} · ${dist.toLocaleString()} mi · brg ${brg}°`;
+}
+
+/* ============================== CHROME ============================== */
+function updateClock(now) {
+  const d = new Date(now);
+  $("clock").textContent = d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+  $("cdate").textContent = d.toLocaleDateString([], {weekday:"long", month:"long", day:"numeric"});
+}
+function updateFooter(generated, failed) {
+  const left = $("footLeft"), right = $("footRight");
+  left.textContent = cards.length
+    ? `${cards.length} CARD${cards.length>1?"S":""} IN THE COLLECTION`
+    : "LOADING COLLECTION…";
+  if (failed) {
+    right.textContent = "DATA REFRESH FAILED · SHOWING LAST KNOWN";
+    right.classList.add("stale");
+  } else if (generated) {
+    const g = new Date(generated);
+    right.textContent = "COLLECTION UPDATED " +
+      `${MONTHS[g.getMonth()]} ${g.getDate()}`;
+    right.classList.remove("stale");
+  }
+}
+
+/* ============================== MASTER TICK ============================== */
+let lastSwap = Date.now(), lastRefresh = Date.now();
+setInterval(() => {
+  const now = Date.now();
+  updateClock(now);
+  featureTick(now);
+  if (now - lastSwap > GRID_SWAP_MS)   { lastSwap = now; ambientSwap(); }
+  if (now - lastRefresh > REFRESH_MS)  { lastRefresh = now; loadManifest(); }
+}, 1000);
+
+/* ============================== BOOT ============================== */
+(async function boot() {
+  updateClock(Date.now());
+  await Promise.all([loadManifest(), loadWorld()]);
+  if (cards.length) startFeature();
+  else {
+    // manifest failed on boot: retry every 30s until it lands
+    const retry = setInterval(async () => {
+      await loadManifest();
+      if (cards.length) { clearInterval(retry); startFeature(); }
+    }, 30000);
+  }
+})();
+</script>
+</body>
+</html>
