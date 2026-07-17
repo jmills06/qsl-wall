@@ -163,6 +163,8 @@ def normalize_band(value):
     if not value:
         return None
     v = str(value).strip().lower().replace(" ", "")
+    if v in ("null", "none", "unk", "unknown", "n/a"):
+        return None
     m = re.match(r"^(\d+(?:\.\d+)?)(m|cm)$", v)
     if m:
         return v
@@ -189,7 +191,9 @@ def normalize_band(value):
 def normalize_mode(value):
     if not value:
         return None
-    v = str(value).strip().upper()
+    v = str(value).strip().upper().replace(" ", "")
+    if v in ("NULL", "NONE", "UNK", "UNKNOWN", "N/A", "2-WAY", "2WAY", "TWO-WAY"):
+        return None
     if v in ("USB", "LSB", "PHONE", "PH"):
         return "SSB"
     return v
@@ -412,7 +416,14 @@ def extract_via_api(front_img, back_img, api_key):
             data = resp.json()
             text = "".join(b.get("text", "") for b in data.get("content", []))
             text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
-            return json.loads(text)
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                if attempt < 3:
+                    time.sleep(3)
+                    continue   # model rambled; ask again
+                return {"callsign": None, "confidence": "low",
+                        "notes": "model returned non-JSON after retries"}
         if resp.status_code in (429, 500, 502, 503, 529):
             wait = 5 * (attempt + 1)
             log(f"    API {resp.status_code}, retrying in {wait}s...")
@@ -504,6 +515,11 @@ def process(args):
         sys.exit("ERROR: ANTHROPIC_API_KEY environment variable is not set.\n"
                  'PowerShell:  $env:ANTHROPIC_API_KEY = "sk-ant-..."')
 
+    answers = {}
+    if args.answers:
+        answers = json.loads(Path(args.answers).read_text(encoding="utf-8"))
+        log(f"Loaded {len(answers)} human-provided answer(s)")
+
     qrz = None
     if not args.no_qrz:
         qrz_user = os.environ.get("QRZ_USERNAME", "")
@@ -574,11 +590,30 @@ def process(args):
                 log("    back side is blank, skipping it")
                 back_img = None
 
-            data = extractor(front_img, back_img, api_key)
+            if answers and front_path.name in answers:
+                data = dict(answers[front_path.name])
+                log("    using provided answer (no API call)")
+            else:
+                data = extractor(front_img, back_img, api_key)
 
-            callsign = (data.get("callsign") or "").upper() or None
             confidence = (data.get("confidence") or "low").lower()
             source = "card"
+            callsign = (data.get("callsign") or "").upper() or None
+            if callsign:
+                # slashed-zero glyphs -> plain zero; strip stray spaces
+                callsign = (callsign.replace("\u00d8", "0").replace("\u2205", "0")
+                                    .replace("\u00f8", "0").replace(" ", ""))
+                # POTA park refs sometimes get read as the callsign
+                if re.match(r"^(POTA[-_]?)?(US|K|VE)-?\d{3,5}$", callsign) \
+                        or not re.search(r"\d", callsign) \
+                        or not re.search(r"[A-Z]", callsign):
+                    data["notes"] = (f"rejected pseudo-callsign '{callsign}'. "
+                                     + (data.get("notes") or ""))
+                    callsign = None
+                elif callsign == "K8JKU":
+                    # the recipient's own call extracted: almost always a misread
+                    confidence = "low"
+                data["callsign"] = callsign
 
             qso = match_log(data, logbook) if logbook else None
             if qso:
@@ -615,8 +650,8 @@ def process(args):
                     else:
                         log(f"    QRZ: {callsign} not found - flagging for review "
                             f"(possible misread callsign)")
-                        if confidence == "high" and source == "card":
-                            confidence = "low"   # unverified card-only extraction
+                        if "log" not in source:
+                            confidence = "low"   # no QRZ record AND no log match
                 except Exception as e:
                     msg = re.sub(r"password=[^&\s')]+", "password=***", str(e))
                     log(f"    QRZ lookup failed ({msg}), continuing without")
@@ -712,6 +747,9 @@ def main():
     ap.add_argument("--no-qrz", action="store_true", help="skip QRZ enrichment even if creds are set")
     ap.add_argument("--enrich-only", action="store_true",
                     help="skip scanning; add QRZ data to existing manifest entries")
+    ap.add_argument("--answers",
+                    help="JSON file mapping front filenames to extraction data; "
+                         "those pairs skip the API")
     ap.add_argument("--delay", type=float, default=1.0, help="seconds between API calls (default 1)")
     args = ap.parse_args()
     if args.enrich_only:

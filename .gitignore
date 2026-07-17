@@ -3,3 +3,6 @@ processed/
 review/
 qrz_cache.json
 *.adi
+answers.json
+mystery/
+upload-staging/
