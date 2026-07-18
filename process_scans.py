@@ -93,6 +93,19 @@ def log(msg):
     print(msg, flush=True)
 
 
+ADDRESS_RE = re.compile(
+    r"[^.]*\b(\d+\s+\w[\w\s]*\b(St|Street|Rd|Road|Ave|Avenue|Dr|Drive|Ln|Lane|Ct|Court|Way|Blvd)\b"
+    r"|P\.?O\.?\s*Box\s*\d+)[^.]*\.?", re.IGNORECASE)
+
+
+def scrub_addresses(text):
+    """Remove sentences containing street addresses or PO boxes from notes.
+    The manifest is published publicly; addresses never belong in it."""
+    if not text:
+        return text
+    return re.sub(r"\s{2,}", " ", ADDRESS_RE.sub("", text)).strip(" .")
+
+
 def sanitize_callsign_for_filename(callsign):
     """EA8/DL1ABC -> EA8-DL1ABC etc. Safe for filenames and URLs."""
     return re.sub(r"[^A-Za-z0-9-]", "-", callsign.upper()).strip("-")
@@ -690,7 +703,7 @@ def process(args):
                 "lon": data.get("lon"),
                 "coords_approx": source == "card" and data.get("lat") is not None,
                 "park": data.get("park"),
-                "notes": data.get("notes") or "",
+                "notes": scrub_addresses(data.get("notes") or ""),
                 "front": f"cards/{stem}_front.jpg",
                 "back": f"cards/{stem}_back.jpg" if back_img else None,
                 "thumb": f"cards/thumbs/{stem}.jpg",
