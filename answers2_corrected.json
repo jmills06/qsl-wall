@@ -1,0 +1,57 @@
+{
+  "2026_07_17_21_48_04_026.jpg": {
+    "callsign": "KC5RPF",
+    "name": "Ken Larsen",
+    "date": "2023-12-24",
+    "band": "10m",
+    "mode": "SSB",
+    "qth": "Georgetown",
+    "country": "United States",
+    "notes": "Williamson County TX, grid EM10, 10-X 70914. 28.382 MHz, 1732 UTC, RST 59, mode PH. Telegraph key parchment card.",
+    "confidence": "high"
+  },
+  "2026_07_17_21_50_59.jpg": {
+    "callsign": "WX1M",
+    "name": "Steven Rayhill",
+    "date": "2023-11-04",
+    "band": "20m",
+    "mode": "SSB",
+    "qth": "Warwick",
+    "country": "United States",
+    "notes": "Kent County RI, grid FN41gr. 14.338 MHz, 2027 UTC, RST 59, POTA K-3383. Icom IC-745 at 100 watts, homebrew hex beam. Thanks for POTA contact and really nice QSL card.",
+    "confidence": "high"
+  },
+  "2026_07_17_21_53_18_014.jpg": {
+    "callsign": "K0VWA",
+    "name": "Carl Ingram",
+    "date": "2023-12-24",
+    "band": "10m",
+    "mode": "SSB",
+    "qth": "Woodland Park",
+    "country": "United States",
+    "notes": "Woodland Park CO. 28.382 MHz, 1741 UTC, RST 59, 100 watts. FT-857D with Buddipole dipole. Hope to hear you on air again soon. Oak tree card.",
+    "confidence": "high"
+  },
+  "2026_07_17_21_46_27.jpg": {
+    "callsign": "AD0BC",
+    "name": "Jerry Thieman",
+    "date": "2023-07-22",
+    "band": "40m",
+    "mode": "SSB",
+    "qth": "Houston",
+    "country": "United States",
+    "notes": "Texas County MO. 7.230 MHz, 1322 UTC, POTA K-3313. This is A.D. not B.C., Jesus Saves card.",
+    "confidence": "high"
+  },
+  "2026_07_17_21_46_27_004.jpg": {
+    "callsign": "AD0BC",
+    "name": "Jerry Thieman",
+    "date": "2023-06-24",
+    "band": "40m",
+    "mode": "SSB",
+    "qth": "Houston",
+    "country": "United States",
+    "notes": "Texas County MO. 7.270 MHz, 0117 UTC, POTA K-3384. Second card from Jerry.",
+    "confidence": "high"
+  }
+}

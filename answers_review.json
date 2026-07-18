@@ -1,0 +1,114 @@
+{
+  "N5VOF_2023-09-16_20m_SSB_front.jpg": {
+    "callsign": "N5VOF",
+    "date": "2023-09-16",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "John Russell",
+    "notes": "Enid OK, EM16bl, Garfield County. 23:28 UTC, 14.339, RST 59. US-3323 hunter."
+  },
+  "N3TFS_2024-06-20_40m_SSB_front.jpg": {
+    "callsign": "N3TFS",
+    "date": "2024-06-20",
+    "band": "40m",
+    "mode": "SSB",
+    "name": "Edgar D. Hopson",
+    "notes": "Landover MD, FM18nw. 01:06 UTC, 7.232, RST 55. Date from log; card has no QSO table."
+  },
+  "KY4KP_2023-09-23_20m_SSB_front.jpg": {
+    "callsign": "KY4KP",
+    "date": "2023-09-23",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "Chad Cone",
+    "notes": "Cartersville GA. 12:59 UTC, 14.248, RST 59."
+  },
+  "KY4AX_2024-01-21_20m_SSB_front.jpg": {
+    "callsign": "KY4AX",
+    "date": "2024-01-21",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "Patrick Elliott",
+    "notes": "Dinwiddie VA. 14:35 UTC, 14.316 USB, RST 59. Thanks for K-3384, POTA on!"
+  },
+  "KO4SXH_2023-09-22_40m_SSB_front.jpg": {
+    "callsign": "KO4SXH",
+    "date": "2023-09-22",
+    "band": "40m",
+    "mode": "SSB",
+    "name": "William Darrell Duckett",
+    "notes": "Asheville NC. 22:50 UTC, 7.252, RST 59. Yaesu 991A/891."
+  },
+  "KA6NPD_2024-06-14_20m_SSB_front.jpg": {
+    "callsign": "KA6NPD",
+    "date": "2024-06-14",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "Ric Vernot",
+    "notes": "Hemet CA, DM13ms, Riverside County. 19:41 UTC, 14.263, RST 33. US-3313, IC-7300, 20m EFHW up 23 ft."
+  },
+  "KD6GLN_2024-06-22_20m_SSB_front.jpg": {
+    "callsign": "KD6GLN",
+    "date": "2024-06-22",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "Dave Wallick",
+    "notes": "Lake Forest CA, DM12dp, Orange County. 00:29 UTC, 14.343, RST 57. Worked from US-4454 at about 3000 ft, FT-891, 17 ft whip."
+  },
+  "KN4NBJ_2023-08-04_20m_SSB_front.jpg": {
+    "callsign": "KN4NBJ",
+    "date": "2023-08-04",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "Chuck Schlichter",
+    "notes": "Virginia Beach VA, FM16vs. 23:53 UTC, 14.274, RST 59. One minute before KC5MJE in the same pileup; card date written day-first."
+  },
+  "KI5NJO_2024-06-20_20m_SSB_front.jpg": {
+    "callsign": "KI5NJO",
+    "date": "2024-06-20",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "George Barton",
+    "notes": "Clinton OK, EM05mm, Custer County. 00:43 UTC, 14.303, RST 55."
+  },
+  "KC3LQD_2023-07-15_40m_SSB_front.jpg": {
+    "callsign": "KC3LQD",
+    "date": "2023-07-15",
+    "band": "40m",
+    "mode": "SSB",
+    "name": "Christopher Noyes",
+    "notes": "Magnolia DE. 13:25 UTC, 7.187, RST 45. Eight-time contact in the log."
+  },
+  "K3PZR_2023-12-26_10m_SSB_front.jpg": {
+    "callsign": "K3PZR",
+    "date": "2023-12-26",
+    "band": "10m",
+    "mode": "SSB",
+    "name": "Sam Millett",
+    "notes": "Annapolis MD. 21:37 UTC, 28.355, RST 57. Boxing Day 10m contact."
+  },
+  "K2E_2023-07-04_20m_SSB_front.jpg": {
+    "callsign": "K2E",
+    "date": "2023-07-04",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "13 Colonies Special Event",
+    "notes": "Delaware station, via Gene NY3C. 23:33 UTC, 14.333, RST 59. Worked on July 4th."
+  },
+  "N8APR_2023-12-30_40m_SSB_front.jpg": {
+    "callsign": "N8APR",
+    "date": "2023-12-30",
+    "band": "40m",
+    "mode": "SSB",
+    "name": "Andrew Rose Jr",
+    "notes": "Hudsonville MI, EN72, Ottawa County. 14:03 UTC, 7.282. USCG cutter card."
+  },
+  "N9VFR_2023-12-21_20m_SSB_front.jpg": {
+    "callsign": "N9VFR",
+    "date": "2023-12-21",
+    "band": "20m",
+    "mode": "SSB",
+    "name": "David S. Duncan",
+    "notes": "Wood River IL. 19:13 UTC, 14 MHz, RST 59. Hunted K-10866 MO as an ATNO, activated straight from the dentist with a numb mouth."
+  }
+}
