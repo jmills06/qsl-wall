@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Mailbag — Card Audit</title>
+<style>
+  :root {
+    --paper: #f4ecd8;
+    --paper-dark: #e9dfc6;
+    --ink: #2b2620;
+    --ink-soft: rgba(43, 38, 32, 0.65);
+    --ink-faint: rgba(43, 38, 32, 0.35);
+    --postal-red: #b3402e;
+    --flag-orange: #d97a2b;
+    --ok-green: #4a7c3f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    padding: 20px;
+  }
+  header {
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: baseline;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 12px; margin-bottom: 8px;
+  }
+  h1 { font-size: 1.5rem; letter-spacing: 1px; }
+  h1 small { font-size: 0.85rem; color: var(--ink-soft); font-weight: normal; }
+  .counts { color: var(--ink-soft); font-size: 0.9rem; }
+  .counts b { color: var(--postal-red); }
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 12px 0; position: sticky; top: 0; background: var(--paper);
+    z-index: 5; border-bottom: 1px solid var(--ink-faint);
+  }
+  input[type="text"] {
+    font-family: inherit; font-size: 1rem; padding: 6px 10px;
+    background: #fffdf7; border: 1px solid var(--ink-faint);
+    color: var(--ink); width: 220px;
+  }
+  button {
+    font-family: inherit; font-size: 0.85rem; padding: 6px 12px;
+    background: var(--paper-dark); border: 1px solid var(--ink-faint);
+    color: var(--ink); cursor: pointer;
+  }
+  button.active { background: var(--ink); color: var(--paper); }
+  button:hover { border-color: var(--ink); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+    gap: 16px; padding-top: 16px;
+  }
+  .card {
+    background: #fffdf7;
+    border: 1px solid var(--ink-faint);
+    box-shadow: 2px 2px 0 rgba(43, 38, 32, 0.12);
+    padding: 10px;
+  }
+  .card.flagged { outline: 3px solid var(--flag-orange); }
+  .card-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .callsign { font-size: 1.15rem; font-weight: bold; letter-spacing: 1px; }
+  .meta { color: var(--ink-soft); font-size: 0.8rem; }
+  .meta .unk { color: var(--postal-red); font-weight: bold; }
+  .imgs { display: flex; gap: 8px; }
+  .imgbox { flex: 1; min-width: 0; text-align: center; }
+  .imgbox img {
+    width: 100%; height: 150px; object-fit: contain;
+    background: var(--paper-dark); cursor: zoom-in; display: block;
+  }
+  .imgbox .lab {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--ink-soft); padding-top: 3px;
+  }
+  .noimg {
+    height: 150px; display: flex; align-items: center; justify-content: center;
+    background: var(--paper-dark); color: var(--ink-faint); font-size: 0.8rem;
+    font-style: italic;
+  }
+  .flagrow { margin-top: 8px; }
+  .flagpanel {
+    margin-top: 8px; padding: 8px; background: var(--paper-dark);
+    font-size: 0.85rem; display: none;
+  }
+  .flagpanel.open { display: block; }
+  .flagpanel label { display: inline-block; margin: 2px 12px 2px 0; cursor: pointer; }
+  .flagpanel input[type="text"] { width: 100%; margin-top: 6px; font-size: 0.85rem; }
+  .notes-ind { font-size: 0.75rem; color: var(--ink-soft); font-style: italic;
+    margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* lightbox */
+  #lightbox {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(43, 38, 32, 0.92);
+    align-items: center; justify-content: center; flex-direction: column; gap: 12px;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img {
+    max-width: 92vw; max-height: 80vh;
+    transition: transform 0.2s ease;
+    background: #fffdf7;
+  }
+  #lightbox .lb-controls { display: flex; gap: 10px; }
+  #lightbox button { background: var(--paper); }
+  #lightbox .lb-cap { color: var(--paper); font-size: 0.9rem; letter-spacing: 1px; }
+  /* export panel */
+  #exportpanel {
+    display: none; position: fixed; right: 20px; bottom: 20px; z-index: 40;
+    width: 420px; max-height: 60vh; background: #fffdf7;
+    border: 2px solid var(--ink); padding: 12px;
+    box-shadow: 4px 4px 0 rgba(43, 38, 32, 0.25);
+  }
+  #exportpanel.open { display: block; }
+  #exportpanel textarea {
+    width: 100%; height: 200px; font-family: monospace; font-size: 0.75rem;
+    background: var(--paper); border: 1px solid var(--ink-faint); padding: 6px;
+  }
+  #exportpanel .row { display: flex; gap: 8px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>THE MAILBAG <small>— card audit</small></h1>
+  <div class="counts" id="counts">loading…</div>
+</header>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="filter by callsign…">
+  <button data-filter="all" class="active">All</button>
+  <button data-filter="noback">No back</button>
+  <button data-filter="unkdate">Unknown date</button>
+  <button data-filter="unkmode">Unknown band/mode</button>
+  <button data-filter="flagged">Flagged</button>
+  <button id="exportbtn" style="margin-left:auto; background: var(--flag-orange); color: #fff;">
+    Export flags
+  </button>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div id="lightbox">
+  <img id="lbimg" src="" alt="">
+  <div class="lb-cap" id="lbcap"></div>
+  <div class="lb-controls">
+    <button onclick="rotLB(-90)">⟲ 90</button>
+    <button onclick="rotLB(180)">180</button>
+    <button onclick="rotLB(90)">⟳ 90</button>
+    <button onclick="closeLB()">Close</button>
+  </div>
+</div>
+
+<div id="exportpanel">
+  <b>Flagged cards</b> — paste this list back to fix
+  <textarea id="exportta" readonly></textarea>
+  <div class="row">
+    <button onclick="copyExport()">Copy to clipboard</button>
+    <button onclick="clearFlags()">Clear all flags</button>
+    <button onclick="document.getElementById('exportpanel').classList.remove('open')">Close</button>
+  </div>
+</div>
+
+<script>
+const ISSUES = [
+  ["front_upside_down", "Front upside down"],
+  ["back_upside_down", "Back upside down"],
+  ["front_back_swapped", "Front/back swapped"],
+  ["wrong_image", "Wrong card entirely"],
+  ["duplicate", "Duplicate of another card"],
+];
+
+let cards = [];
+let flags = {};          // stem -> {issues: [], note: ""}
+let filter = "all";
+let lbRot = 0;
+
+// storage guarded so the page still works anywhere storage is unavailable
+function loadFlags() {
+  try { flags = JSON.parse(localStorage.getItem("mailbag_audit_flags")) || {}; }
+  catch (e) { flags = {}; }
+}
+function saveFlags() {
+  try { localStorage.setItem("mailbag_audit_flags", JSON.stringify(flags)); }
+  catch (e) { /* no persistence, still works in-session */ }
+}
+
+function stemOf(c) {
+  if (c.front) return c.front.split("/").pop().replace("_front.jpg", "");
+  return (c.callsign || "?") + "_" + (c.date || "unknown-date");
+}
+
+function fmt(v, unk) { return v ? v : `<span class="unk">${unk}</span>`; }
+
+function matchesFilter(c) {
+  const stem = stemOf(c);
+  const q = document.getElementById("search").value.trim().toUpperCase();
+  if (q && !(c.callsign || "").toUpperCase().includes(q)) return false;
+  if (filter === "noback") return !c.back;
+  if (filter === "unkdate") return !c.date;
+  if (filter === "unkmode") return !c.band || !c.mode;
+  if (filter === "flagged") return !!flags[stem];
+  return true;
+}
+
+function render() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  let shown = 0;
+  for (const c of cards) {
+    if (!matchesFilter(c)) continue;
+    shown++;
+    const stem = stemOf(c);
+    const f = flags[stem];
+    const div = document.createElement("div");
+    div.className = "card" + (f ? " flagged" : "");
+    const imgcell = (path, label) => path
+      ? `<div class="imgbox"><img loading="lazy" src="${path}"
+           onclick="openLB('${path}','${stem} — ${label}')">
+           <div class="lab">${label}</div></div>`
+      : `<div class="imgbox"><div class="noimg">no ${label}</div>
+           <div class="lab">${label}</div></div>`;
+    div.innerHTML = `
+      <div class="card-head">
+        <span class="callsign">${c.callsign || "?"}</span>
+        <span class="meta">${fmt(c.date, "no date")} ·
+          ${fmt(c.band, "band?")} · ${fmt(c.mode, "mode?")}</span>
+      </div>
+      <div class="imgs">${imgcell(c.front, "front")}${imgcell(c.back, "back")}</div>
+      ${c.notes ? `<div class="notes-ind" title="${(c.notes || "").replace(/"/g, "&quot;")}">✎ ${c.notes}</div>` : ""}
+      <div class="flagrow">
+        <button onclick="togglePanel('${stem}')">${f ? "⚑ flagged" : "⚑ flag"}</button>
+      </div>
+      <div class="flagpanel" id="panel-${stem}">
+        ${ISSUES.map(([k, lab]) => `
+          <label><input type="checkbox" data-stem="${stem}" data-issue="${k}"
+            ${f && f.issues.includes(k) ? "checked" : ""}
+            onchange="toggleIssue(this)"> ${lab}</label>`).join("")}
+        <input type="text" placeholder="note (optional)"
+          value="${f && f.note ? f.note.replace(/"/g, "&quot;") : ""}"
+          onchange="setNote('${stem}', this.value)">
+      </div>`;
+    grid.appendChild(div);
+  }
+  const nf = Object.keys(flags).length;
+  document.getElementById("counts").innerHTML =
+    `${cards.length} cards · showing ${shown} · <b>${nf} flagged</b>`;
+}
+
+function togglePanel(stem) {
+  document.getElementById("panel-" + stem).classList.toggle("open");
+}
+function toggleIssue(cb) {
+  const stem = cb.dataset.stem, issue = cb.dataset.issue;
+  if (!flags[stem]) flags[stem] = { issues: [], note: "" };
+  const list = flags[stem].issues;
+  if (cb.checked) { if (!list.includes(issue)) list.push(issue); }
+  else { flags[stem].issues = list.filter(x => x !== issue); }
+  if (!flags[stem].issues.length && !flags[stem].note) delete flags[stem];
+  saveFlags(); render();
+  const p = document.getElementById("panel-" + stem);
+  if (p) p.classList.add("open");
+}
+function setNote(stem, val) {
+  if (!flags[stem]) flags[stem] = { issues: [], note: "" };
+  flags[stem].note = val.trim();
+  if (!flags[stem].issues.length && !flags[stem].note) delete flags[stem];
+  saveFlags(); render();
+}
+function clearFlags() {
+  if (!confirm("Clear all flags?")) return;
+  flags = {}; saveFlags(); render(); updateExport();
+}
+
+function openLB(path, cap) {
+  lbRot = 0;
+  const img = document.getElementById("lbimg");
+  img.src = path; img.style.transform = "rotate(0deg)";
+  document.getElementById("lbcap").textContent = cap;
+  document.getElementById("lightbox").classList.add("open");
+}
+function rotLB(deg) {
+  lbRot = (lbRot + deg) % 360;
+  document.getElementById("lbimg").style.transform = `rotate(${lbRot}deg)`;
+}
+function closeLB() {
+  document.getElementById("lightbox").classList.remove("open");
+}
+document.getElementById("lightbox").addEventListener("click", e => {
+  if (e.target.id === "lightbox") closeLB();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeLB(); });
+
+function updateExport() {
+  const out = Object.entries(flags).map(([stem, f]) =>
+    ({ card: stem, issues: f.issues, note: f.note || undefined }));
+  document.getElementById("exportta").value = JSON.stringify(out, null, 2);
+}
+document.getElementById("exportbtn").addEventListener("click", () => {
+  updateExport();
+  document.getElementById("exportpanel").classList.toggle("open");
+});
+function copyExport() {
+  const ta = document.getElementById("exportta");
+  ta.select(); document.execCommand("copy");
+}
+
+document.getElementById("search").addEventListener("input", render);
+document.querySelectorAll(".controls button[data-filter]").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll(".controls button[data-filter]")
+      .forEach(x => x.classList.remove("active"));
+    b.classList.add("active");
+    filter = b.dataset.filter;
+    render();
+  });
+});
+
+loadFlags();
+fetch("data/cards.json")
+  .then(r => r.json())
+  .then(m => {
+    cards = m.cards.slice().sort((a, b) =>
+      (a.callsign || "").localeCompare(b.callsign || ""));
+    render();
+  })
+  .catch(e => {
+    document.getElementById("counts").textContent =
+      "could not load data/cards.json — " + e;
+  });
+</script>
+</body>
+</html>
