@@ -331,7 +331,11 @@ ADIF_FIELD_RE = re.compile(r"<([A-Za-z_]+):(\d+)(?::[A-Za-z])?>", re.IGNORECASE)
 
 def parse_adif(path):
     """Minimal ADIF parser. Returns dict: callsign -> list of QSO dicts."""
-    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    return parse_adif_text(Path(path).read_text(encoding="utf-8", errors="replace"))
+
+
+def parse_adif_text(text):
+    """parse_adif for ADIF already in memory (e.g. from the QRZ Logbook API)."""
     # strip header
     eoh = re.search(r"<eoh>", text, re.IGNORECASE)
     if eoh:
@@ -402,7 +406,7 @@ def match_log(extracted, logbook):
 # Extraction (real API + mock)
 # ----------------------------------------------------------------------------
 
-def extract_via_api(front_img, back_img, api_key):
+def extract_via_api(front_img, back_img, api_key, prompt=EXTRACTION_PROMPT):
     content = [
         {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                      "data": image_to_api_b64(front_img)}},
@@ -411,7 +415,7 @@ def extract_via_api(front_img, back_img, api_key):
         content.append(
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                          "data": image_to_api_b64(back_img)}})
-    content.append({"type": "text", "text": EXTRACTION_PROMPT})
+    content.append({"type": "text", "text": prompt})
 
     body = {
         "model": MODEL,
@@ -467,6 +471,114 @@ def extract_mock(front_img, back_img, api_key=None):
          "notes": "POTA K-1234", "confidence": "high"},
     ]
     return dict(samples[(n - 1) % len(samples)])
+
+
+# ----------------------------------------------------------------------------
+# Per-card steps (shared with inbox/process_inbox.py)
+# ----------------------------------------------------------------------------
+
+def clean_callsign(data, confidence):
+    """Normalize data["callsign"] in place, rejecting park refs and other
+    pseudo-callsigns. Returns (callsign or None, possibly lowered confidence)."""
+    callsign = (data.get("callsign") or "").upper() or None
+    if callsign:
+        # slashed-zero glyphs -> plain zero; strip stray spaces
+        callsign = (callsign.replace("Ø", "0").replace("∅", "0")
+                            .replace("ø", "0").replace(" ", ""))
+        # POTA park refs sometimes get read as the callsign
+        if re.match(r"^(POTA[-_]?)?(US|K|VE)-?\d{3,5}$", callsign) \
+                or not re.search(r"\d", callsign) \
+                or not re.search(r"[A-Z]", callsign):
+            data["notes"] = (f"rejected pseudo-callsign '{callsign}'. "
+                             + (data.get("notes") or ""))
+            callsign = None
+        elif callsign == "K8JKU":
+            # the recipient's own call extracted: almost always a misread
+            confidence = "low"
+        data["callsign"] = callsign
+    return callsign, confidence
+
+
+def apply_log_match(data, qso):
+    """Log is the source of truth; card fills gaps."""
+    for k in ("date", "band", "mode"):
+        data[k] = qso[k] or data.get(k)
+    for k in ("country", "qth", "lat", "lon"):
+        data[k] = qso[k] if qso[k] is not None else data.get(k)
+    data["park"] = qso.get("park")
+
+
+def qrz_lookup_with_fallback(qrz, callsign):
+    """Portable calls fall back to the base call (HC1MD/2 -> HC1MD)."""
+    rec = qrz.lookup(callsign)
+    if rec is None and "/" in callsign:
+        rec = qrz.lookup(qrz_base_call(callsign))
+    return rec
+
+
+def apply_qrz(data, rec):
+    """QRZ fills anything the log didn't provide."""
+    if data.get("lat") is None and rec["lat"] is not None:
+        data["lat"], data["lon"] = rec["lat"], rec["lon"]
+    if not data.get("country"):
+        data["country"] = rec["country"]
+    if not data.get("qth"):
+        data["qth"] = ", ".join(
+            p for p in (rec["city"], rec["state"]) if p) or None
+
+
+def card_stem(callsign, data, cards_dir, manifest):
+    """CALLSIGN_DATE_BAND_MODE, made unique against the manifest and disk."""
+    safe_call = sanitize_callsign_for_filename(callsign)
+    date_part = data.get("date") or "unknown-date"
+    band_part = data.get("band") or "unk"
+    mode_part = data.get("mode") or "UNK"
+    return unique_stem(f"{safe_call}_{date_part}_{band_part}_{mode_part}",
+                       cards_dir, manifest)
+
+
+def build_entry(stem, callsign, operator_name, data, has_back, confidence,
+                qrz_verified, source, original_front, original_back):
+    return {
+        "id": stem.lower(),
+        "callsign": callsign,
+        "name": operator_name,
+        "date": data.get("date"),
+        "band": data.get("band"),
+        "mode": data.get("mode"),
+        "qth": data.get("qth"),
+        "country": data.get("country"),
+        "lat": data.get("lat"),
+        "lon": data.get("lon"),
+        "coords_approx": source == "card" and data.get("lat") is not None,
+        "park": data.get("park"),
+        "notes": scrub_addresses(data.get("notes") or ""),
+        "front": f"cards/{stem}_front.jpg",
+        "back": f"cards/{stem}_back.jpg" if has_back else None,
+        "thumb": f"cards/thumbs/{stem}.jpg",
+        "confidence": confidence,
+        "qrz_verified": qrz_verified,
+        "source": source,
+        "original_front": original_front,
+        "original_back": original_back,
+    }
+
+
+def save_card_images(front_img, back_img, stem, cards_dir, thumbs_dir):
+    """Display-size front/back plus the grid thumbnail."""
+    resize_to_width(front_img, DISPLAY_WIDTH).save(
+        cards_dir / f"{stem}_front.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
+    if back_img:
+        resize_to_width(back_img, DISPLAY_WIDTH).save(
+            cards_dir / f"{stem}_back.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
+    resize_to_width(front_img, THUMB_WIDTH).save(
+        thumbs_dir / f"{stem}.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
+
+
+def save_manifest(manifest, manifest_path):
+    manifest["generated"] = datetime.now().isoformat(timespec="seconds")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ----------------------------------------------------------------------------
@@ -552,9 +664,7 @@ def process(args):
         done, missed = 0, 0
         for c in todo:
             try:
-                rec = qrz.lookup(c["callsign"])
-                if rec is None and "/" in c["callsign"]:
-                    rec = qrz.lookup(qrz_base_call(c["callsign"]))
+                rec = qrz_lookup_with_fallback(qrz, c["callsign"])
                 if rec:
                     if not c.get("name"):
                         c["name"] = rec["name"]
@@ -577,9 +687,7 @@ def process(args):
             except Exception as e:
                 msg = re.sub(r"password=[^&\s')]+", "password=***", str(e))
                 sys.exit(f"QRZ error, stopping: {msg}")
-        manifest["generated"] = datetime.now().isoformat(timespec="seconds")
-        manifest_path.write_text(
-            json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+        save_manifest(manifest, manifest_path)
         log(f"\nDone. {done} enriched, {missed} not found. Manifest updated.")
         return
 
@@ -611,31 +719,11 @@ def process(args):
 
             confidence = (data.get("confidence") or "low").lower()
             source = "card"
-            callsign = (data.get("callsign") or "").upper() or None
-            if callsign:
-                # slashed-zero glyphs -> plain zero; strip stray spaces
-                callsign = (callsign.replace("\u00d8", "0").replace("\u2205", "0")
-                                    .replace("\u00f8", "0").replace(" ", ""))
-                # POTA park refs sometimes get read as the callsign
-                if re.match(r"^(POTA[-_]?)?(US|K|VE)-?\d{3,5}$", callsign) \
-                        or not re.search(r"\d", callsign) \
-                        or not re.search(r"[A-Z]", callsign):
-                    data["notes"] = (f"rejected pseudo-callsign '{callsign}'. "
-                                     + (data.get("notes") or ""))
-                    callsign = None
-                elif callsign == "K8JKU":
-                    # the recipient's own call extracted: almost always a misread
-                    confidence = "low"
-                data["callsign"] = callsign
+            callsign, confidence = clean_callsign(data, confidence)
 
             qso = match_log(data, logbook) if logbook else None
             if qso:
-                # Log is the source of truth; card fills gaps
-                for k in ("date", "band", "mode"):
-                    data[k] = qso[k] or data.get(k)
-                for k in ("country", "qth", "lat", "lon"):
-                    data[k] = qso[k] if qso[k] is not None else data.get(k)
-                data["park"] = qso.get("park")
+                apply_log_match(data, qso)
                 confidence = "high"
                 source = "card+log"
                 log(f"    matched log: {qso['callsign']} {qso['date']} {qso['band']} {qso['mode']}")
@@ -644,20 +732,11 @@ def process(args):
             operator_name = None
             if qrz and callsign:
                 try:
-                    rec = qrz.lookup(callsign)
-                    if rec is None and "/" in callsign:
-                        rec = qrz.lookup(qrz_base_call(callsign))
+                    rec = qrz_lookup_with_fallback(qrz, callsign)
                     if rec:
                         qrz_verified = True
                         operator_name = rec["name"]
-                        # QRZ fills anything the log didn't provide
-                        if data.get("lat") is None and rec["lat"] is not None:
-                            data["lat"], data["lon"] = rec["lat"], rec["lon"]
-                        if not data.get("country"):
-                            data["country"] = rec["country"]
-                        if not data.get("qth"):
-                            data["qth"] = ", ".join(
-                                p for p in (rec["city"], rec["state"]) if p) or None
+                        apply_qrz(data, rec)
                         source += "+qrz"
                         log(f"    QRZ: {operator_name or 'verified'}")
                     else:
@@ -683,54 +762,20 @@ def process(args):
             data["band"] = normalize_band(data.get("band"))
             data["mode"] = normalize_mode(data.get("mode"))
 
-            safe_call = sanitize_callsign_for_filename(callsign)
-            date_part = data.get("date") or "unknown-date"
-            band_part = data.get("band") or "unk"
-            mode_part = data.get("mode") or "UNK"
-            stem = f"{safe_call}_{date_part}_{band_part}_{mode_part}"
-            stem = unique_stem(stem, cards_dir, manifest)
-
-            entry = {
-                "id": stem.lower(),
-                "callsign": callsign,
-                "name": operator_name,
-                "date": data.get("date"),
-                "band": data.get("band"),
-                "mode": data.get("mode"),
-                "qth": data.get("qth"),
-                "country": data.get("country"),
-                "lat": data.get("lat"),
-                "lon": data.get("lon"),
-                "coords_approx": source == "card" and data.get("lat") is not None,
-                "park": data.get("park"),
-                "notes": scrub_addresses(data.get("notes") or ""),
-                "front": f"cards/{stem}_front.jpg",
-                "back": f"cards/{stem}_back.jpg" if back_img else None,
-                "thumb": f"cards/thumbs/{stem}.jpg",
-                "confidence": confidence,
-                "qrz_verified": qrz_verified,
-                "source": source,
-                "original_front": front_path.name,
-                "original_back": back_path.name if back_path else None,
-            }
+            stem = card_stem(callsign, data, cards_dir, manifest)
+            entry = build_entry(stem, callsign, operator_name, data, back_img is not None,
+                                confidence, qrz_verified, source, front_path.name,
+                                back_path.name if back_path else None)
 
             if args.dry_run:
                 log(f"    would create: {stem}_front.jpg / _back.jpg / thumb  [{source}]")
             else:
-                resize_to_width(front_img, DISPLAY_WIDTH).save(
-                    cards_dir / f"{stem}_front.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
-                if back_img:
-                    resize_to_width(back_img, DISPLAY_WIDTH).save(
-                        cards_dir / f"{stem}_back.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
-                resize_to_width(front_img, THUMB_WIDTH).save(
-                    thumbs_dir / f"{stem}.jpg", "JPEG", quality=JPEG_QUALITY, optimize=True)
+                save_card_images(front_img, back_img, stem, cards_dir, thumbs_dir)
                 shutil.move(str(front_path), processed_dir / front_path.name)
                 if back_path:
                     shutil.move(str(back_path), processed_dir / back_path.name)
                 manifest["cards"].append(entry)
-                manifest["generated"] = datetime.now().isoformat(timespec="seconds")
-                manifest_path.write_text(
-                    json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+                save_manifest(manifest, manifest_path)
 
             ok += 1
             log(f"    OK -> {stem}  [{source}, {confidence}]")

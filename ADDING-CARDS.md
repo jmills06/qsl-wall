@@ -5,6 +5,10 @@ Every wave: **scan → export → process → clean → review → push**. The b
 `https://jmills06.github.io/qsl-wall/` picks up pushed cards automatically
 within the hour (immediately on a browser/DakBoard refresh).
 
+> **Just one or two cards?** Skip the wave process: use the upload page
+> (`admin.html`) and merge the review PR. Setup and usage are in
+> [`inbox/SETUP.md`](inbox/SETUP.md).
+
 ---
 
 ## One-time prerequisites (per machine)

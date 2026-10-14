@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data: https://raw.githubusercontent.com; connect-src https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>K8JKU · Add a Card</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper:#f2ead6; --paper-2:#ece2c8; --card:#fbf7ec;
+    --ink:#22303f; --ink-60:rgba(34,48,63,.62); --ink-15:rgba(34,48,63,.15);
+    --red:#b23a48; --blue:#2f4b6e; --green:#3f7a4f;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html { background:var(--paper-2); }
+  body { font-family:'Source Sans Pro',system-ui,sans-serif; color:var(--ink); font-size:16px;
+         background:linear-gradient(180deg,var(--paper),var(--paper-2)); min-height:100vh; }
+  main { max-width:720px; margin:0 auto; padding:20px 16px 60px; }
+  header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; }
+  h1 { font-family:'Oswald'; font-weight:600; letter-spacing:3px; font-size:30px; }
+  h2 { font-family:'Oswald'; font-weight:500; letter-spacing:2px; font-size:18px; text-transform:uppercase;
+       margin:0 0 12px; }
+  .rule { height:2px; background:linear-gradient(90deg,var(--ink-60),transparent); margin:4px 0 20px; }
+  section { background:var(--card); border:1px solid var(--ink-15); border-radius:6px; padding:16px;
+            margin-bottom:18px; box-shadow:0 1px 3px rgba(34,48,63,.06); }
+  label { display:block; font-weight:600; font-size:14px; margin:12px 0 4px; }
+  .hint { color:var(--ink-60); font-size:14px; }
+  input[type=text], input[type=password], input[type=date], select, textarea {
+    width:100%; font:inherit; padding:10px; border:1px solid var(--ink-15); border-radius:4px; background:#fff; color:var(--ink); }
+  textarea { min-height:64px; resize:vertical; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:480px) { .row { grid-template-columns:1fr; } }
+  button { font-family:'Oswald'; letter-spacing:1px; font-size:16px; border:0; border-radius:4px;
+           padding:11px 18px; cursor:pointer; background:var(--blue); color:#fff; }
+  button.secondary { background:transparent; color:var(--blue); border:1px solid var(--blue); }
+  button.danger { background:transparent; color:var(--red); border:1px solid var(--red); }
+  button:disabled { opacity:.5; cursor:default; }
+  .linkbtn { background:none; border:0; color:var(--ink-60); font-family:inherit; font-size:14px; padding:0; text-decoration:underline; }
+  .seg { display:flex; border:1px solid var(--blue); border-radius:4px; overflow:hidden; }
+  .seg button { flex:1; border-radius:0; background:transparent; color:var(--blue); padding:10px 6px; font-size:15px; }
+  .seg button.on { background:var(--blue); color:#fff; }
+  .sides { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; }
+  @media (max-width:480px) { .sides { grid-template-columns:1fr; } }
+  .side { border:1px dashed var(--ink-60); border-radius:6px; padding:10px; text-align:center; min-height:150px;
+          display:flex; flex-direction:column; justify-content:center; gap:8px; }
+  .side canvas { max-width:100%; max-height:220px; margin:0 auto; display:block; border-radius:3px; }
+  .side .tools { display:flex; gap:8px; justify-content:center; }
+  .side .tools button { padding:6px 10px; font-size:14px; }
+  .side input[type=file] { display:none; }
+  .actions { display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  .msg { margin-top:12px; padding:10px 12px; border-radius:4px; font-size:15px; display:none; }
+  .msg.show { display:block; }
+  .msg.ok { background:rgba(63,122,79,.12); color:var(--green); }
+  .msg.err { background:rgba(178,58,72,.12); color:var(--red); }
+  .msg.info { background:rgba(47,75,110,.1); color:var(--blue); }
+  .status-line { padding:8px 0; border-bottom:1px solid var(--ink-15); font-size:15px; }
+  .status-line:last-child { border-bottom:0; }
+  .status-line a { color:var(--blue); }
+  .help-item { border-top:1px solid var(--ink-15); padding-top:12px; margin-top:12px; }
+  .help-item img { max-width:48%; max-height:160px; border-radius:3px; margin-right:4px; }
+  .pill { display:inline-block; font-size:12px; padding:2px 8px; border-radius:10px; background:var(--ink-15); }
+  .hidden { display:none !important; }
+  details summary { cursor:pointer; color:var(--ink-60); font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>ADD A CARD</h1><button class="linkbtn hidden" id="signout">Sign out</button></header>
+  <div class="rule"></div>
+
+  <!-- sign in -->
+  <section id="signin" class="hidden">
+    <h2>Sign in</h2>
+    <p class="hint">Use a GitHub fine-grained token for your private inbox repo
+      (Contents: read and write, Actions: read). It is stored only on this device.</p>
+    <label for="owner">GitHub user</label>
+    <input type="text" id="owner" value="jmills06" autocapitalize="off" autocomplete="username">
+    <label for="repo">Inbox repo</label>
+    <input type="text" id="repo" value="qsl-inbox" autocapitalize="off">
+    <label for="token">Token</label>
+    <input type="password" id="token" autocomplete="current-password" placeholder="github_pat_...">
+    <div class="actions"><button id="signin-btn">Sign in</button></div>
+    <div class="msg" id="signin-msg"></div>
+  </section>
+
+  <!-- upload -->
+  <section id="upload" class="hidden">
+    <h2>New card</h2>
+    <label>How was it captured?</label>
+    <div class="seg" id="source">
+      <button data-v="scanner">Scanner</button>
+      <button data-v="photo">Phone photo (auto-crop)</button>
+    </div>
+
+    <div class="sides">
+      <div class="side" id="side-front">
+        <strong>Front</strong>
+        <canvas class="hidden"></canvas>
+        <input type="file" accept="image/*">
+        <div class="tools">
+          <button class="secondary pick">Choose</button>
+          <button class="secondary rot hidden" title="Rotate 90° clockwise">&#8635; Rotate</button>
+        </div>
+      </div>
+      <div class="side" id="side-back">
+        <strong>Back <span class="hint">(optional)</span></strong>
+        <canvas class="hidden"></canvas>
+        <input type="file" accept="image/*">
+        <div class="tools">
+          <button class="secondary pick">Choose</button>
+          <button class="secondary rot hidden" title="Rotate 90° clockwise">&#8635; Rotate</button>
+          <button class="secondary clear hidden" title="Remove">&#10005;</button>
+        </div>
+      </div>
+    </div>
+    <p class="hint" id="rot-note" style="margin-top:8px">Rotation is checked automatically. If you rotate a side
+      yourself, auto-rotate is turned off for this card.</p>
+
+    <details style="margin-top:14px">
+      <summary>Hints (optional, these override what the AI reads)</summary>
+      <div class="row">
+        <div><label for="h-callsign">Callsign</label>
+          <input type="text" id="h-callsign" autocapitalize="characters" autocomplete="off"></div>
+        <div><label for="h-date">QSO date</label><input type="date" id="h-date"></div>
+      </div>
+      <div class="row">
+        <div><label for="h-band">Band</label>
+          <select id="h-band"><option value=""></option>
+            <option>160m</option><option>80m</option><option>60m</option><option>40m</option><option>30m</option>
+            <option>20m</option><option>17m</option><option>15m</option><option>12m</option><option>10m</option>
+            <option>6m</option><option>2m</option><option>1.25m</option><option>70cm</option></select></div>
+        <div><label for="h-mode">Mode</label>
+          <select id="h-mode"><option value=""></option>
+            <option>SSB</option><option>CW</option><option>FT8</option><option>FT4</option><option>FM</option>
+            <option>AM</option><option>RTTY</option><option>PSK31</option><option>JS8</option></select></div>
+      </div>
+      <label for="h-notes">Notes</label>
+      <textarea id="h-notes" placeholder="e.g. handed to me at Hamvention"></textarea>
+    </details>
+
+    <div class="actions">
+      <button id="submit" disabled>Upload</button>
+      <button class="linkbtn" id="reset">Clear</button>
+    </div>
+    <div class="msg" id="upload-msg"></div>
+  </section>
+
+  <!-- status -->
+  <section id="status" class="hidden">
+    <h2>Status <button class="linkbtn" id="refresh" style="float:right">Refresh</button></h2>
+    <div id="status-lines"><div class="status-line hint">Loading…</div></div>
+  </section>
+
+  <!-- needs help -->
+  <section id="help" class="hidden">
+    <h2>Needs help</h2>
+    <p class="hint">The AI couldn't find a callsign on these. Add it and retry, or discard.</p>
+    <div id="help-list"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const WALL_REPO = "jmills06/qsl-wall";
+const REVIEW_BRANCH = "inbox/pending";
+const MAX_EDGE = 3000;          // px; plenty for the 1200px display copy, keeps the inbox small
+const LS = { owner:"qslInbox.owner", repo:"qslInbox.repo", token:"qslInbox.token", source:"qslInbox.source" };
+
+const $ = (s, el=document) => el.querySelector(s);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+function show(el, on=true) { el.classList.toggle("hidden", !on); }
+function msg(el, text, kind="info") { el.textContent = text; el.className = `msg show ${kind}`; }
+function clearMsg(el) { el.className = "msg"; }
+
+// ---------------------------------------------------------------- GitHub API
+let auth = null;   // {owner, repo, token}
+
+async function gh(path, opts={}) {
+  const url = path.startsWith("https://") ? path : `https://api.github.com${path}`;
+  const headers = { "Accept":"application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28", ...(opts.headers||{}) };
+  if (auth && !opts.anon) headers.Authorization = `Bearer ${auth.token}`;
+  const r = await fetch(url, { method: opts.method || "GET", headers,
+                               body: opts.body ? JSON.stringify(opts.body) : undefined });
+  if (opts.raw) { if (!r.ok) throw apiError(r, await r.text()); return r; }
+  const text = await r.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!r.ok) throw apiError(r, data && data.message);
+  return data;
+}
+function apiError(r, m) { const e = new Error(`GitHub ${r.status}: ${m || r.statusText}`); e.status = r.status; return e; }
+const repoPath = () => `/repos/${auth.owner}/${auth.repo}`;
+
+/** One atomic commit on the inbox's default branch.
+ *  changes: [{path, b64}] add/replace, [{path, sha}] reuse a blob, [{path, del:true}] remove. */
+async function commit(message, changes) {
+  const info = await gh(repoPath());
+  const branch = info.default_branch;
+  const blobs = [];
+  for (const c of changes) {
+    if (c.b64) {
+      const b = await gh(`${repoPath()}/git/blobs`, { method:"POST", body:{ content:c.b64, encoding:"base64" } });
+      blobs.push({ path:c.path, mode:"100644", type:"blob", sha:b.sha });
+    } else if (c.del) {
+      blobs.push({ path:c.path, mode:"100644", type:"blob", sha:null });
+    } else {
+      blobs.push({ path:c.path, mode:"100644", type:"blob", sha:c.sha });
+    }
+  }
+  for (let attempt = 0; attempt < 3; attempt++) {   // the bot may commit in between
+    const ref = await gh(`${repoPath()}/git/ref/heads/${branch}`);
+    const head = await gh(`${repoPath()}/git/commits/${ref.object.sha}`);
+    const tree = await gh(`${repoPath()}/git/trees`, { method:"POST", body:{ base_tree:head.tree.sha, tree:blobs } });
+    const c = await gh(`${repoPath()}/git/commits`, { method:"POST", body:{ message, tree:tree.sha, parents:[head.sha] } });
+    try {
+      await gh(`${repoPath()}/git/refs/heads/${branch}`, { method:"PATCH", body:{ sha:c.sha } });
+      return c.sha;
+    } catch (e) { if (e.status !== 422 || attempt === 2) throw e; }
+  }
+}
+
+// ---------------------------------------------------------------- sign in
+async function trySignIn(a) {
+  auth = a;
+  const info = await gh(repoPath());
+  if (!info.permissions || !info.permissions.push) throw new Error("This token can't write to that repo.");
+  if (!info.private) throw new Error(`${a.owner}/${a.repo} is public. Card backs and logs belong in a private repo.`);
+  return info;
+}
+async function boot() {
+  const saved = { owner:store.get(LS.owner), repo:store.get(LS.repo), token:store.get(LS.token) };
+  if (saved.owner && saved.repo && saved.token) {
+    try { await trySignIn(saved); return signedIn(); }
+    catch (e) { auth = null; msg($("#signin-msg"), `Saved sign-in failed: ${e.message}`, "err"); }
+  }
+  show($("#signin"));
+}
+$("#signin-btn").onclick = async () => {
+  const a = { owner:$("#owner").value.trim(), repo:$("#repo").value.trim(), token:$("#token").value.trim() };
+  if (!a.owner || !a.repo || !a.token) return msg($("#signin-msg"), "Fill in all three.", "err");
+  $("#signin-btn").disabled = true; msg($("#signin-msg"), "Checking…");
+  try {
+    await trySignIn(a);
+    store.set(LS.owner, a.owner); store.set(LS.repo, a.repo); store.set(LS.token, a.token);
+    $("#token").value = ""; clearMsg($("#signin-msg")); signedIn();
+  } catch (e) { auth = null; msg($("#signin-msg"), e.message, "err"); }
+  $("#signin-btn").disabled = false;
+};
+$("#signout").onclick = () => { [LS.token].forEach(store.del); location.reload(); };
+function signedIn() {
+  show($("#signin"), false); ["#upload", "#status", "#signout"].forEach(s => show($(s)));
+  loadStatus();
+}
+
+// ---------------------------------------------------------------- image handling
+let source = store.get(LS.source) || "scanner";
+const sides = {
+  front: { el:$("#side-front"), bitmap:null, rot:0 },
+  back:  { el:$("#side-back"),  bitmap:null, rot:0 },
+};
+let userRotated = false;
+
+function setSource(v) {
+  source = v; store.set(LS.source, v);
+  document.querySelectorAll("#source button").forEach(b => b.classList.toggle("on", b.dataset.v === v));
+}
+document.querySelectorAll("#source button").forEach(b => b.onclick = () => setSource(b.dataset.v));
+setSource(source);
+
+async function decode(file) {
+  try { return await createImageBitmap(file, { imageOrientation:"from-image" }); }
+  catch {
+    // older Safari: fall back to an <img>, which also honors EXIF orientation
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.src = url; await img.decode(); return img;
+    } finally { URL.revokeObjectURL(url); }
+  }
+}
+
+/** Draw a side, rotated and capped at maxEdge, onto a new canvas. */
+function render(s, maxEdge) {
+  const w0 = s.bitmap.width, h0 = s.bitmap.height;
+  const scale = Math.min(1, maxEdge / Math.max(w0, h0));
+  const w = Math.round(w0 * scale), h = Math.round(h0 * scale);
+  const swap = s.rot % 180 !== 0;
+  const c = document.createElement("canvas");
+  c.width = swap ? h : w; c.height = swap ? w : h;
+  const ctx = c.getContext("2d");
+  ctx.translate(c.width / 2, c.height / 2);
+  ctx.rotate(s.rot * Math.PI / 180);
+  ctx.drawImage(s.bitmap, -w / 2, -h / 2, w, h);
+  return c;
+}
+function drawPreview(name) {
+  const s = sides[name], cv = $("canvas", s.el);
+  const has = !!s.bitmap;
+  show(cv, has); show($(".rot", s.el), has);
+  if ($(".clear", s.el)) show($(".clear", s.el), has);
+  $(".pick", s.el).textContent = has ? "Replace" : "Choose";
+  if (!has) return;
+  const r = render(s, 600);
+  cv.width = r.width; cv.height = r.height;
+  cv.getContext("2d").drawImage(r, 0, 0);
+}
+for (const name of Object.keys(sides)) {
+  const s = sides[name], input = $("input[type=file]", s.el);
+  $(".pick", s.el).onclick = () => input.click();
+  input.onchange = async () => {
+    const f = input.files[0]; input.value = "";
+    if (!f) return;
+    try { s.bitmap = await decode(f); s.rot = 0; }
+    catch { return msg($("#upload-msg"), "This browser can't open that image (HEIC on a desktop browser?). Try a JPEG.", "err"); }
+    clearMsg($("#upload-msg")); drawPreview(name); updateSubmit();
+  };
+  $(".rot", s.el).onclick = () => { s.rot = (s.rot + 90) % 360; userRotated = true; drawPreview(name); };
+  const clr = $(".clear", s.el);
+  if (clr) clr.onclick = () => { s.bitmap = null; s.rot = 0; drawPreview(name); updateSubmit(); };
+}
+function updateSubmit() { $("#submit").disabled = !sides.front.bitmap; }
+
+function toB64Jpeg(canvas) {
+  return new Promise((resolve, reject) => canvas.toBlob(blob => {
+    if (!blob) return reject(new Error("could not encode image"));
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result.split(",")[1]);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  }, "image/jpeg", 0.9));
+}
+
+function uploadId() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-` +
+         Math.random().toString(36).slice(2, 6);
+}
+function readHints() {
+  return {
+    callsign: $("#h-callsign").value.trim().toUpperCase(),
+    date: $("#h-date").value, band: $("#h-band").value, mode: $("#h-mode").value,
+    notes: $("#h-notes").value.trim(),
+  };
+}
+function resetForm() {
+  for (const n of Object.keys(sides)) { sides[n].bitmap = null; sides[n].rot = 0; drawPreview(n); }
+  userRotated = false;
+  ["#h-callsign", "#h-date", "#h-band", "#h-mode", "#h-notes"].forEach(s => $(s).value = "");
+  updateSubmit();
+}
+$("#reset").onclick = () => { resetForm(); clearMsg($("#upload-msg")); };
+
+$("#submit").onclick = async () => {
+  const out = $("#upload-msg");
+  $("#submit").disabled = true; msg(out, "Preparing images…");
+  try {
+    const id = uploadId();
+    const changes = [{ path:`incoming/${id}/front.jpg`, b64:await toB64Jpeg(render(sides.front, MAX_EDGE)) }];
+    if (sides.back.bitmap) changes.push({ path:`incoming/${id}/back.jpg`, b64:await toB64Jpeg(render(sides.back, MAX_EDGE)) });
+    const meta = { source, rotation_locked:userRotated, hints:readHints(), uploaded:new Date().toISOString() };
+    changes.push({ path:`incoming/${id}/meta.json`, b64:btoa(unescape(encodeURIComponent(JSON.stringify(meta, null, 2)))) });
+    msg(out, "Uploading…");
+    await commit(`Upload ${id}`, changes);
+    resetForm();
+    msg(out, "Uploaded. Processing takes a couple of minutes, then a review PR appears under Status.", "ok");
+    setTimeout(loadStatus, 4000);
+  } catch (e) {
+    msg(out, `Upload failed: ${e.message}`, "err"); updateSubmit();
+  }
+};
+
+// ---------------------------------------------------------------- status + needs help
+function line(html) { const d = document.createElement("div"); d.className = "status-line"; d.append(...html); return d; }
+function link(text, href) { const a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text; return a; }
+function txt(t) { return document.createTextNode(t); }
+
+async function loadStatus() {
+  const box = $("#status-lines"); box.replaceChildren(line([txt("Loading…")]));
+  const lines = [];
+  try {
+    const prs = await gh(`/repos/${WALL_REPO}/pulls?state=open&head=${WALL_REPO.split("/")[0]}:${REVIEW_BRANCH}`, { anon:true });
+    lines.push(prs.length
+      ? line([txt("Ready for review: "), link(`${prs[0].title} (#${prs[0].number})`, prs[0].html_url)])
+      : line([txt("No cards waiting for review.")]));
+  } catch (e) { lines.push(line([txt(`Review PR: ${e.message}`)])); }
+  try {
+    const runs = await gh(`${repoPath()}/actions/runs?per_page=3`);
+    for (const r of runs.workflow_runs) {
+      const state = r.status === "completed" ? r.conclusion : r.status.replace("_", " ");
+      const when = new Date(r.created_at).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+      lines.push(line([txt(`${when} · `), link(r.display_title || r.name, r.html_url), txt(" · "),
+                       Object.assign(document.createElement("span"), { className:"pill", textContent:state })]));
+    }
+    if (!runs.workflow_runs.length) lines.push(line([txt("No processing runs yet.")]));
+  } catch (e) {
+    lines.push(line([txt(e.status === 403 ? "Processing runs: give the token Actions read access to see these."
+                                           : `Processing runs: ${e.message}`)]));
+  }
+  try {
+    const inc = await gh(`${repoPath()}/contents/incoming`).catch(e => { if (e.status === 404) return []; throw e; });
+    const n = inc.filter(x => x.type === "dir").length;
+    if (n) lines.push(line([txt(`${n} upload(s) waiting to be processed.`)]));
+  } catch {}
+  box.replaceChildren(...lines);
+  loadHelp();
+}
+$("#refresh").onclick = loadStatus;
+
+async function blobUrl(path) {
+  const r = await gh(`${repoPath()}/contents/${path}`, { raw:true, headers:{ Accept:"application/vnd.github.raw" } });
+  return URL.createObjectURL(await r.blob());
+}
+
+async function loadHelp() {
+  const list = $("#help-list");
+  let dirs;
+  try {
+    dirs = (await gh(`${repoPath()}/contents/review`)).filter(x => x.type === "dir");
+  } catch (e) { if (e.status === 404) { show($("#help"), false); return; } throw e; }
+  show($("#help"), dirs.length > 0);
+  list.replaceChildren();
+  for (const d of dirs) {
+    const files = await gh(`${repoPath()}/contents/review/${d.name}`);
+    const item = document.createElement("div"); item.className = "help-item";
+    let result = {};
+    const rf = files.find(f => f.name === "result.json");
+    if (rf) {
+      try { result = JSON.parse(await (await gh(`${repoPath()}/contents/${rf.path}`, { raw:true, headers:{ Accept:"application/vnd.github.raw" } })).text()); } catch {}
+    }
+    const title = document.createElement("div");
+    title.append(Object.assign(document.createElement("strong"), { textContent:d.name }), txt(" "),
+                 Object.assign(document.createElement("div"), { className:"hint", textContent:result.reason || "" }));
+    item.append(title);
+    const imgs = document.createElement("div"); imgs.style.margin = "8px 0";
+    for (const f of files.filter(f => /^(front|back)\./i.test(f.name))) {
+      const img = document.createElement("img"); img.alt = f.name; imgs.append(img);
+      blobUrl(f.path).then(u => img.src = u).catch(() => {});
+    }
+    item.append(imgs);
+    const row = document.createElement("div"); row.className = "row";
+    const call = Object.assign(document.createElement("input"), { type:"text", placeholder:"Callsign", autocapitalize:"characters" });
+    const date = Object.assign(document.createElement("input"), { type:"date" });
+    row.append(call, date); item.append(row);
+    const acts = document.createElement("div"); acts.className = "actions";
+    const retry = Object.assign(document.createElement("button"), { textContent:"Retry with hints" });
+    const discard = Object.assign(document.createElement("button"), { className:"danger", textContent:"Discard" });
+    const note = Object.assign(document.createElement("div"), { className:"msg" });
+    acts.append(retry, discard); item.append(acts, note);
+
+    retry.onclick = async () => {
+      if (!call.value.trim()) return msg(note, "Add the callsign first.", "err");
+      retry.disabled = discard.disabled = true; msg(note, "Sending back to the inbox…");
+      try {
+        const metaFile = files.find(f => f.name === "meta.json");
+        let meta = {};
+        if (metaFile) meta = JSON.parse(await (await gh(`${repoPath()}/contents/${metaFile.path}`, { raw:true, headers:{ Accept:"application/vnd.github.raw" } })).text());
+        meta.hints = { ...(meta.hints || {}), callsign:call.value.trim().toUpperCase(), ...(date.value ? { date:date.value } : {}) };
+        const changes = [];
+        for (const f of files) {
+          changes.push({ path:f.path, del:true });
+          if (f.name !== "result.json" && f.name !== "meta.json") changes.push({ path:`incoming/${d.name}/${f.name}`, sha:f.sha });
+        }
+        changes.push({ path:`incoming/${d.name}/meta.json`, b64:btoa(unescape(encodeURIComponent(JSON.stringify(meta, null, 2)))) });
+        await commit(`Retry ${d.name}`, changes);
+        msg(note, "Queued for processing again.", "ok");
+        setTimeout(loadStatus, 4000);
+      } catch (e) { msg(note, e.message, "err"); retry.disabled = discard.disabled = false; }
+    };
+    discard.onclick = async () => {
+      if (!confirm(`Discard upload ${d.name}? Its images are removed from the inbox (still in git history).`)) return;
+      retry.disabled = discard.disabled = true;
+      try { await commit(`Discard ${d.name}`, files.map(f => ({ path:f.path, del:true }))); item.remove(); }
+      catch (e) { msg(note, e.message, "err"); retry.disabled = discard.disabled = false; }
+    };
+    list.append(item);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

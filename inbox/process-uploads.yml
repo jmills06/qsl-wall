@@ -1,0 +1,115 @@
+# Copy this file into the PRIVATE qsl-inbox repo as
+#   .github/workflows/process-uploads.yml
+# See inbox/SETUP.md in qsl-wall for the secrets it needs.
+#
+# Runs whenever admin.html pushes an upload into incoming/. Processes every
+# pending upload, then rebuilds the qsl-wall "inbox/pending" branch from main
+# (keeping cards from a still-open review PR) and opens or updates that PR.
+
+name: Process QSL uploads
+
+on:
+  push:
+    branches: [main]
+    paths: ["incoming/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: qsl-inbox
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  WALL_REPO: jmills06/qsl-wall
+  BRANCH: inbox/pending
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out inbox (latest, not the triggering commit)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check out qsl-wall
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.WALL_REPO }}
+          token: ${{ secrets.QSL_WALL_TOKEN }}
+          path: wall
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install packages
+        run: pip install pillow requests opencv-python-headless numpy
+
+      - name: Start review branch from main, keep cards from an open review PR
+        id: prep
+        working-directory: wall
+        env:
+          GH_TOKEN: ${{ secrets.QSL_WALL_TOKEN }}
+        run: |
+          default=$(gh repo view "$WALL_REPO" --json defaultBranchRef --jq .defaultBranchRef.name)
+          echo "default=$default" >> "$GITHUB_OUTPUT"
+          git checkout -B "$BRANCH" "origin/$default"
+          pr=$(gh pr list --repo "$WALL_REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          if [ -n "$pr" ]; then
+            git checkout "origin/$BRANCH" -- cards
+            git show "origin/$BRANCH:data/cards.json" > "$RUNNER_TEMP/pending.json"
+            echo "carry=--carry $RUNNER_TEMP/pending.json" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Process uploads
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          QRZ_USERNAME: ${{ secrets.QRZ_USERNAME }}
+          QRZ_PASSWORD: ${{ secrets.QRZ_PASSWORD }}
+          QRZ_LOGBOOK_KEY: ${{ secrets.QRZ_LOGBOOK_KEY }}
+        run: |
+          python wall/inbox/process_inbox.py --inbox . --wall wall \
+            ${{ steps.prep.outputs.carry }} \
+            --report "$RUNNER_TEMP/pr.md" --summary "$RUNNER_TEMP/summary.json" \
+            --image-base "https://raw.githubusercontent.com/$WALL_REPO/$BRANCH/"
+
+      - name: Push review branch and open or update the PR
+        working-directory: wall
+        env:
+          GH_TOKEN: ${{ secrets.QSL_WALL_TOKEN }}
+          PR: ${{ steps.prep.outputs.pr }}
+          DEFAULT: ${{ steps.prep.outputs.default }}
+        run: |
+          added=$(jq .added "$RUNNER_TEMP/summary.json")
+          if [ "$added" -eq 0 ]; then
+            echo "No new cards for the wall this run."
+            exit 0
+          fi
+          git config user.name "qsl-inbox bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A cards data
+          git commit -m "Inbox: $added new card(s) for review"
+          git push --force origin "$BRANCH"
+          if [ -n "$PR" ]; then
+            gh pr edit "$PR" --repo "$WALL_REPO" --body-file "$RUNNER_TEMP/pr.md"
+          else
+            gh pr create --repo "$WALL_REPO" --base "$DEFAULT" --head "$BRANCH" \
+              --title "New QSL cards for review" --body-file "$RUNNER_TEMP/pr.md"
+          fi
+
+      - name: Record processed uploads in the inbox
+        run: |
+          git config user.name "qsl-inbox bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- . ':!wall'
+          git commit -m "Processed uploads" || exit 0
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
