@@ -77,7 +77,10 @@ token**. It's saved on that device only. Add the page to your home screen.
 4. **Hints** are optional. Anything you fill in (callsign, date, band, mode)
    overrides what the AI reads, like an answers file. Use them for messy
    handwriting.
-5. Upload. A couple of minutes later the Status box links the review PR.
+5. Upload. The Status box updates by itself while the card is processing
+   (about a minute), then links the review PR.
+6. More cards? Keep uploading. They all collect in the same review PR until
+   you merge it, and the next upload after a merge starts a new one.
 
 **Photo tips:** put the card on a dark or contrasting surface (not white
 paper on a white desk), fill most of the frame, and avoid glare.

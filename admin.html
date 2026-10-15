@@ -369,7 +369,7 @@ $("#submit").onclick = async () => {
     await commit(`Upload ${id}`, changes);
     resetForm();
     msg(out, "Uploaded. Processing takes a couple of minutes, then a review PR appears under Status.", "ok");
-    setTimeout(loadStatus, 4000);
+    setTimeout(() => loadStatus(), 4000);
   } catch (e) {
     msg(out, `Upload failed: ${e.message}`, "err"); updateSubmit();
   }
@@ -380,11 +380,27 @@ function line(html) { const d = document.createElement("div"); d.className = "st
 function link(text, href) { const a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text; return a; }
 function txt(t) { return document.createTextNode(t); }
 
-async function loadStatus() {
-  const box = $("#status-lines"); box.replaceChildren(line([txt("Loading…")]));
+// While an upload is queued or processing, re-check every POLL_MS so the
+// review PR link appears by itself. Polling stops when things go idle or
+// after POLL_LIMIT_MS (a stuck run shouldn't burn API calls forever).
+const POLL_MS = 15000, POLL_LIMIT_MS = 10 * 60 * 1000;
+let pollTimer = null, pollStarted = 0, wasBusy = false;
+
+async function openReviewPr() {
+  const q = `/repos/${WALL_REPO}/pulls?state=open&head=${WALL_REPO.split("/")[0]}:${REVIEW_BRANCH}`;
+  // the token's higher rate limit matters while polling; fall back to anonymous
+  try { return await gh(q); } catch { return await gh(q, { anon:true }); }
+}
+
+async function loadStatus(opts = {}) {
+  const quiet = opts.quiet === true;
+  clearTimeout(pollTimer); pollTimer = null;
+  const box = $("#status-lines");
+  if (!quiet) box.replaceChildren(line([txt("Loading…")]));
   const lines = [];
+  let busy = false;
   try {
-    const prs = await gh(`/repos/${WALL_REPO}/pulls?state=open&head=${WALL_REPO.split("/")[0]}:${REVIEW_BRANCH}`, { anon:true });
+    const prs = await openReviewPr();
     lines.push(prs.length
       ? line([txt("Ready for review: "), link(`${prs[0].title} (#${prs[0].number})`, prs[0].html_url)])
       : line([txt("No cards waiting for review.")]));
@@ -392,6 +408,7 @@ async function loadStatus() {
   try {
     const runs = await gh(`${repoPath()}/actions/runs?per_page=3`);
     for (const r of runs.workflow_runs) {
+      if (r.status !== "completed") busy = true;
       const state = r.status === "completed" ? r.conclusion : r.status.replace("_", " ");
       const when = new Date(r.created_at).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
       lines.push(line([txt(`${when} · `), link(r.display_title || r.name, r.html_url), txt(" · "),
@@ -405,12 +422,28 @@ async function loadStatus() {
   try {
     const inc = await gh(`${repoPath()}/contents/incoming`).catch(e => { if (e.status === 404) return []; throw e; });
     const n = inc.filter(x => x.type === "dir").length;
-    if (n) lines.push(line([txt(`${n} upload(s) waiting to be processed.`)]));
+    if (n) { busy = true; lines.push(line([txt(`${n} upload(s) waiting to be processed.`)])); }
   } catch {}
+
+  if (busy && !pollStarted) pollStarted = Date.now();
+  const keepPolling = busy && Date.now() - pollStarted < POLL_LIMIT_MS;
+  if (keepPolling) {
+    lines.push(line([Object.assign(document.createElement("span"), { className:"hint",
+      textContent:"Processing… this updates by itself." })]));
+    pollTimer = setTimeout(() => loadStatus({ quiet:true }), POLL_MS);
+  } else {
+    pollStarted = 0;
+  }
   box.replaceChildren(...lines);
-  loadHelp();
+  // Needs help has text boxes; only rebuild it when not mid-poll, so typing isn't wiped
+  if (!quiet || (wasBusy && !busy)) loadHelp();
+  wasBusy = busy;
 }
-$("#refresh").onclick = loadStatus;
+$("#refresh").onclick = () => loadStatus();
+document.addEventListener("visibilitychange", () => {
+  // phones pause timers in background tabs; catch up when the page is shown again
+  if (document.visibilityState === "visible" && auth) loadStatus({ quiet:true });
+});
 
 async function blobUrl(path) {
   const r = await gh(`${repoPath()}/contents/${path}`, { raw:true, headers:{ Accept:"application/vnd.github.raw" } });
@@ -479,7 +512,7 @@ async function loadHelp() {
         changes.push({ path:`incoming/${d.name}/meta.json`, b64:btoa(unescape(encodeURIComponent(JSON.stringify(meta, null, 2)))) });
         await commit(`${isDup ? "Add duplicate" : "Retry"} ${d.name}`, changes);
         msg(note, "Queued for processing again.", "ok");
-        setTimeout(loadStatus, 4000);
+        setTimeout(() => loadStatus(), 4000);
       } catch (e) { msg(note, e.message, "err"); retry.disabled = discard.disabled = false; }
     };
     discard.onclick = async () => {
