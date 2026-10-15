@@ -89,8 +89,9 @@ Each card in the PR shows the images, the metadata, and checks:
 - ✅ **matched your QRZ logbook**: date/band/mode came from your log, and the
   grid square gave exact coordinates. ➖ means the card's own data stands.
 - ✅ **QRZ verified**: callsign exists, operator name filled in.
-- ⚠️ flags: auto-crop unsure, auto-rotated, low confidence, possible
-  duplicate of a card already on the wall.
+- ⚠️ flags: auto-crop unsure, auto-rotated, low confidence, or the image
+  looks like another station's card already on the wall (a misread callsign?).
+- ℹ️ notes: other cards you already have from the same station.
 
 Then:
 - **All good:** merge. Pages publishes it within a minute or two.
@@ -104,9 +105,18 @@ Then:
 
 ## Needs help
 
-When no callsign can be found, the upload goes to `review/` in qsl-inbox
-and shows under **Needs help** on the upload page. Type the callsign (and
-date if you know it) and tap **Retry**, or **Discard** it.
+Two kinds of uploads are held in `review/` in qsl-inbox instead of going into
+the PR, and show under **Needs help** on the upload page:
+
+- **No callsign found:** type the callsign (and date if you know it) and tap
+  **Retry**, or **Discard** it.
+- **Duplicate:** a card with the same **callsign, date and band** is already
+  on the wall or waiting in the open PR. The page shows what was read. Tap
+  **Add anyway** (for example, a second card for the same QSO you want to
+  keep) or **Discard**.
+
+The date compared is the logged date when the QRZ logbook matched, so a
+smudged date on the card still gets caught.
 
 ## Costs
 

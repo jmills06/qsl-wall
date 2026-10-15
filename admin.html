@@ -157,7 +157,8 @@
   <!-- needs help -->
   <section id="help" class="hidden">
     <h2>Needs help</h2>
-    <p class="hint">The AI couldn't find a callsign on these. Add it and retry, or discard.</p>
+    <p class="hint">Uploads that need a decision: a callsign the AI couldn't read, or a
+      card that matches one already on the wall.</p>
     <div id="help-list"></div>
   </section>
 </main>
@@ -442,31 +443,41 @@ async function loadHelp() {
       blobUrl(f.path).then(u => img.src = u).catch(() => {});
     }
     item.append(imgs);
+    const isDup = result.status === "duplicate";
     const row = document.createElement("div"); row.className = "row";
     const call = Object.assign(document.createElement("input"), { type:"text", placeholder:"Callsign", autocapitalize:"characters" });
     const date = Object.assign(document.createElement("input"), { type:"date" });
-    row.append(call, date); item.append(row);
+    row.append(call, date);
+    if (isDup) {
+      const c = result.card || {};
+      const d = document.createElement("div"); d.className = "hint";
+      d.textContent = `Read as ${[c.callsign, c.date, c.band, c.mode].filter(Boolean).join(" · ")}`;
+      item.append(d);
+    } else {
+      item.append(row);
+    }
     const acts = document.createElement("div"); acts.className = "actions";
-    const retry = Object.assign(document.createElement("button"), { textContent:"Retry with hints" });
+    const retry = Object.assign(document.createElement("button"), { textContent:isDup ? "Add anyway" : "Retry with hints" });
     const discard = Object.assign(document.createElement("button"), { className:"danger", textContent:"Discard" });
     const note = Object.assign(document.createElement("div"), { className:"msg" });
     acts.append(retry, discard); item.append(acts, note);
 
     retry.onclick = async () => {
-      if (!call.value.trim()) return msg(note, "Add the callsign first.", "err");
+      if (!isDup && !call.value.trim()) return msg(note, "Add the callsign first.", "err");
       retry.disabled = discard.disabled = true; msg(note, "Sending back to the inbox…");
       try {
         const metaFile = files.find(f => f.name === "meta.json");
         let meta = {};
         if (metaFile) meta = JSON.parse(await (await gh(`${repoPath()}/contents/${metaFile.path}`, { raw:true, headers:{ Accept:"application/vnd.github.raw" } })).text());
-        meta.hints = { ...(meta.hints || {}), callsign:call.value.trim().toUpperCase(), ...(date.value ? { date:date.value } : {}) };
+        if (isDup) meta.allow_duplicate = true;
+        else meta.hints = { ...(meta.hints || {}), callsign:call.value.trim().toUpperCase(), ...(date.value ? { date:date.value } : {}) };
         const changes = [];
         for (const f of files) {
           changes.push({ path:f.path, del:true });
           if (f.name !== "result.json" && f.name !== "meta.json") changes.push({ path:`incoming/${d.name}/${f.name}`, sha:f.sha });
         }
         changes.push({ path:`incoming/${d.name}/meta.json`, b64:btoa(unescape(encodeURIComponent(JSON.stringify(meta, null, 2)))) });
-        await commit(`Retry ${d.name}`, changes);
+        await commit(`${isDup ? "Add duplicate" : "Retry"} ${d.name}`, changes);
         msg(note, "Queued for processing again.", "ok");
         setTimeout(loadStatus, 4000);
       } catch (e) { msg(note, e.message, "err"); retry.disabled = discard.disabled = false; }
