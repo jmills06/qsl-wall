@@ -8,3 +8,4 @@ mystery/
 upload-staging/
 run.log
 scrub_addresses.txt
+__pycache__/

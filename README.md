@@ -3,6 +3,9 @@
 Turns a folder of raw scanner output into renamed, resized, manifest-tracked
 card images ready for the QSL Wall board.
 
+For single cards received one at a time, use the upload page instead of a
+wave: see [`inbox/SETUP.md`](inbox/SETUP.md).
+
 ## One-time setup (Windows)
 
 ```powershell
