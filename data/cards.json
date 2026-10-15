@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-18T18:15:35",
+  "generated": "2026-10-15T01:33:59",
   "cards": [
     {
       "id": "k0itp_2024-02-11_20m_ssb",
@@ -13087,6 +13087,52 @@
       "source": "card+log+qrz",
       "original_front": "N9VFR_2023-12-21_20m_SSB_back.jpg",
       "original_back": "N9VFR_2023-12-21_20m_SSB_front.jpg"
+    },
+    {
+      "id": "k4ads_2026-08-07_20m_ssb",
+      "callsign": "K4ADS",
+      "name": "ALTON D SUGG, Sr",
+      "date": "2026-08-07",
+      "band": "20m",
+      "mode": "SSB",
+      "qth": "ORLANDO",
+      "country": "United States",
+      "lat": 28.6042,
+      "lon": -81.4583,
+      "coords_approx": false,
+      "park": null,
+      "notes": "Contact with K8JKU. 100 watts output, Hexbeam antenna, 35 miles range. POTA contact US-6771 MI",
+      "front": "cards/K4ADS_2026-08-07_20m_SSB_front.jpg",
+      "back": "cards/K4ADS_2026-08-07_20m_SSB_back.jpg",
+      "thumb": "cards/thumbs/K4ADS_2026-08-07_20m_SSB.jpg",
+      "confidence": "high",
+      "qrz_verified": true,
+      "source": "card+log+qrz",
+      "original_front": "20261014-212410-ukqe/front.jpg",
+      "original_back": "20261014-212410-ukqe/back.jpg"
+    },
+    {
+      "id": "ka3maj_2023-12-26_20m_ssb",
+      "callsign": "KA3MAJ",
+      "name": "Louis G DiBello",
+      "date": "2023-12-26",
+      "band": "20m",
+      "mode": "SSB",
+      "qth": "Havertown",
+      "country": "United States",
+      "lat": 40.0208,
+      "lon": -75.2917,
+      "coords_approx": false,
+      "park": null,
+      "notes": "Delaware County, Grid FM29ix. Contact confirmed on 14.312 MHz. Card indicates thanks for this QSO and 6 others, 73 LCU. ARRL member (based on ARRL logo present)",
+      "front": "cards/KA3MAJ_2023-12-26_20m_SSB_front.jpg",
+      "back": "cards/KA3MAJ_2023-12-26_20m_SSB_back.jpg",
+      "thumb": "cards/thumbs/KA3MAJ_2023-12-26_20m_SSB.jpg",
+      "confidence": "high",
+      "qrz_verified": true,
+      "source": "card+log+qrz",
+      "original_front": "20261014-213330-2u26/front.jpg",
+      "original_back": "20261014-213330-2u26/back.jpg"
     }
   ]
 }
