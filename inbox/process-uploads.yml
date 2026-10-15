@@ -106,7 +106,7 @@ jobs:
         run: |
           git config user.name "qsl-inbox bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- . ':!wall'
+          git add -A .   # wall/ is skipped via .gitignore
           git commit -m "Processed uploads" || exit 0
           for i in 1 2 3; do
             git pull --rebase origin main && git push origin HEAD:main && exit 0
