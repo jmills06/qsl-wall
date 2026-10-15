@@ -31,6 +31,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
+from PIL import Image
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
@@ -46,6 +49,28 @@ Also include these two keys in the same JSON object:
   "back_rotation": the same for the SECOND image, or 0 if there is only one image"""
 
 HINT_FIELDS = ("callsign", "date", "band", "mode")
+
+# Image similarity (difference hash, 256 bits) against cards already on the
+# wall. Measured on the existing collection: the same card re-captured scores
+# up to ~66, unrelated cards almost never under 88. Stations reuse one design
+# for every QSO and some stock templates are shared between stations, so an
+# image match only means "same design". Duplicates are decided by callsign,
+# date and band; the image is used to spot a misread callsign.
+IMAGE_MATCH = 70
+DATE_SLOP_DAYS = 3      # same tolerance match_log uses for card-vs-log dates
+
+
+def dhash(img, size=16):
+    g = np.asarray(img.convert("L").resize((size + 1, size), Image.LANCZOS), dtype=np.int16)
+    return (g[:, 1:] > g[:, :-1]).flatten()
+
+
+def days_apart(a, b):
+    """Days between two YYYY-MM-DD dates, or None if either is missing/bad."""
+    try:
+        return abs((datetime.strptime(a, "%Y-%m-%d") - datetime.strptime(b, "%Y-%m-%d")).days)
+    except (TypeError, ValueError):
+        return None
 
 
 def log(msg):
@@ -100,6 +125,8 @@ class Pipeline:
         else:
             log("QRZ enrichment disabled (QRZ_USERNAME / QRZ_PASSWORD not set)")
 
+        self._hashes = None   # card id -> dhash, built on first use
+
     # -- steps ---------------------------------------------------------------
 
     def carry_pending(self, carry_path):
@@ -113,6 +140,55 @@ class Pipeline:
             ps.save_manifest(self.manifest, self.manifest_path)
         log(f"Carried {len(carried)} card(s) from the open review PR")
         return carried
+
+    def card_hashes(self):
+        if self._hashes is None:
+            self._hashes = {}
+            for c in self.manifest["cards"]:
+                path = self.wall / (c.get("thumb") or "")
+                if c.get("thumb") and path.exists():
+                    try:
+                        self._hashes[c["id"]] = dhash(Image.open(path))
+                    except Exception:
+                        pass
+        return self._hashes
+
+    def image_matches(self, img):
+        """Cards on the wall (or in the open PR) whose front looks like img."""
+        h = dhash(img)
+        by_id = {c["id"]: c for c in self.manifest["cards"]}
+        hits = [(int((h != v).sum()), by_id[cid]) for cid, v in self.card_hashes().items()
+                if cid in by_id]
+        return sorted([x for x in hits if x[0] <= IMAGE_MATCH], key=lambda x: x[0])
+
+    def find_duplicate(self, callsign, date, band):
+        """A card already on the wall (or in the open PR) for the same QSO:
+        same callsign, date and band. Held for confirmation, not auto-added."""
+        if not date:
+            return None
+        for c in self.manifest["cards"]:
+            if c["callsign"] == callsign and c.get("date") == date and c.get("band") == band:
+                return c
+        return None
+
+    def similar_cards(self, callsign, date, front, result):
+        """Non-blocking notes: other QSOs with this station, and an image that
+        matches a different station's card (a misread callsign?)."""
+        others = [c for c in self.manifest["cards"] if c["callsign"] == callsign]
+        if others:
+            result.setdefault("info", []).append(
+                f"You already have {len(others)} other card(s) from {callsign}: "
+                + ", ".join(" ".join(x for x in (c.get("date") or "undated", c.get("band")) if x)
+                            for c in others) + ".")
+        for dist, c in self.image_matches(front):
+            if c["callsign"] == callsign:
+                continue
+            gap = days_apart(c.get("date"), date)
+            if gap is None or gap <= DATE_SLOP_DAYS:
+                result["flags"].append(
+                    f"The image looks like `{c['id']}` ({c['callsign']}, {c.get('date') or 'undated'}). "
+                    "Check the callsign wasn't misread.")
+                break
 
     def log_match(self, data, callsign, flags):
         if not self.logbook_key:
@@ -190,6 +266,11 @@ class Pipeline:
         if not callsign:
             result["status"] = "review"
             result["reason"] = "No callsign could be read. Add it as a hint and retry."
+            hits = self.image_matches(front)
+            if hits and hits[0][0] <= 40:
+                c = hits[0][1]
+                result["reason"] += (f" It looks like {c['callsign']} ({c.get('date') or 'undated'}),"
+                                     " which is already on the wall, so it may be a duplicate.")
             return result
 
         source_tag = "card"
@@ -221,10 +302,15 @@ class Pipeline:
 
         data["band"] = ps.normalize_band(data.get("band"))
         data["mode"] = ps.normalize_mode(data.get("mode"))
-        for c in self.manifest["cards"]:
-            if c["callsign"] == callsign and c.get("date") == data.get("date"):
-                flags.append(f"Possible duplicate of `{c['id']}` already on the wall.")
-                break
+        dup = self.find_duplicate(callsign, data.get("date"), data.get("band"))
+        if dup and not meta.get("allow_duplicate"):
+            result.update(status="duplicate", duplicate_of=dup["id"], card=data,
+                          reason=f"Looks like a duplicate of {dup['id']} (same callsign, "
+                                 "date and band). Add it anyway, or discard it.")
+            return result
+        if dup:
+            flags.append(f"Same QSO as `{dup['id']}`; you chose to add it anyway.")
+        self.similar_cards(callsign, data.get("date"), front, result)
 
         stem = ps.card_stem(callsign, data, self.cards_dir, self.manifest)
         entry = ps.build_entry(stem, callsign, operator_name, data, back is not None,
@@ -233,6 +319,7 @@ class Pipeline:
                                f"{uid}/{back_path.name}" if back_path else None)
         ps.save_card_images(front, back, stem, self.cards_dir, self.thumbs_dir)
         self.manifest["cards"].append(entry)
+        self.card_hashes()[entry["id"]] = dhash(Image.open(self.wall / entry["thumb"]))
         ps.save_manifest(self.manifest, self.manifest_path)
 
         result.update(status="added", card_id=entry["id"], log_matched=bool(qso),
@@ -323,13 +410,14 @@ class Pipeline:
             out.append(" · ".join(checks))
             for f in r.get("flags", []):
                 out.append(f"- ⚠️ {f}")
+            for f in r.get("info", []):
+                out.append(f"- ℹ️ {f}")
             out.append("")
         if review:
             out += ["---", "", "### Needs your help (not in this PR)", ""]
             for r in review:
                 out.append(f"- `{r['upload_id']}`: {r.get('reason')}")
-            out += ["", "Open the upload page, find it under **Needs help**, add the "
-                    "callsign and retry.", ""]
+            out += ["", "Open the upload page and handle these under **Needs help**.", ""]
         return "\n".join(out)
 
 
